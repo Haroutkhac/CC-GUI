@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import GameCanvas from './components/GameCanvas.jsx';
 import TerminalOverlay from './components/TerminalOverlay.jsx';
 import { CreateProjectDialog, CreateSessionDialog, TableContextMenu } from './components/DialogBox.jsx';
@@ -85,7 +85,7 @@ export default function App() {
 
   // Global keyboard shortcuts (capture phase)
   // Plain letter keys — no Cmd/Ctrl needed. Ignored when typing in inputs or terminal.
-  React.useEffect(() => {
+  useEffect(() => {
     const handleKey = (e) => {
       // ESC always works
       if (e.key === 'Escape') {
@@ -271,7 +271,7 @@ export default function App() {
 
 function MobileControls() {
   const [visible, setVisible] = useState(false);
-  React.useEffect(() => { setVisible('ontouchstart' in window); }, []);
+  useEffect(() => { setVisible('ontouchstart' in window); }, []);
   if (!visible) return null;
 
   const press = (key, down) => {

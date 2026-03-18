@@ -1,4 +1,5 @@
-import React from 'react';
+
+
 
 const PRIORITY_COLORS = {
   4: '#C04040', // CRITICAL - red

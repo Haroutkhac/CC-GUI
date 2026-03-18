@@ -308,16 +308,17 @@ export default function SessionCarousel({
     setDragOffset(diffX);
   }, []);
 
+  const transitionTimerRef = useRef(null);
+
   const handleTouchEnd = useCallback(() => {
-    const { moved, startX, startTime } = touchRef.current;
+    const { moved } = touchRef.current;
 
     if (!moved || Math.abs(dragOffset) < 5) {
-      // It was a tap, not a swipe. Reset drag.
       setDragOffset(0);
       return;
     }
 
-    const elapsed = Date.now() - startTime;
+    const elapsed = Date.now() - touchRef.current.startTime;
     const velocity = Math.abs(dragOffset) / Math.max(elapsed, 1);
 
     let newIndex = currentIndex;
@@ -332,8 +333,8 @@ export default function SessionCarousel({
     setCurrentIndex(newIndex);
     setDragOffset(0);
 
-    const tid = setTimeout(() => setIsTransitioning(false), 320);
-    touchRef.current.transitionTimer = tid;
+    clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = setTimeout(() => setIsTransitioning(false), 320);
   }, [dragOffset, currentIndex, clampIndex]);
 
   // Card tap handler -- only fire if there was no significant swipe

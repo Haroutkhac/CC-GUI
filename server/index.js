@@ -9,6 +9,7 @@ import { execFile } from 'child_process';
 import { TerminalManager } from './terminal-manager.js';
 import { Store } from './store.js';
 import { Orchestrator } from './orchestrator.js';
+import { stripAnsi, STATUS_BUFFER_LIMIT } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv.includes('--production');
@@ -173,7 +174,9 @@ app.get('/api/discover', async (req, res) => {
         source: localPath ? 'both' : 'github',
       };
     }).filter(r => !existingPaths.has(r.path));
-  } catch (e) { /* gh not available or parse error */ }
+  } catch (e) {
+    console.warn('GitHub discovery unavailable:', e.message);
+  }
 
   // Merge: local repos that aren't in GitHub list + all GitHub repos
   const githubNames = new Set(github.map(g => g.name.toLowerCase()));
@@ -283,24 +286,14 @@ io.on('connection', (socket) => {
 });
 
 // Session summaries (last meaningful output line per session)
-function stripAnsi(str) {
-  return str
-    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')   // CSI sequences (colors, cursor)
-    .replace(/\x1b\][^\x07]*\x07/g, '')        // OSC sequences (title, hyperlinks)
-    .replace(/\x1b\[\?[0-9;]*[a-zA-Z]/g, '')   // Private mode sequences
-    .replace(/\x1b[()][A-Z0-9]/g, '')           // Character set selection
-    .replace(/\x1b=/g, '')                       // Application keypad
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '') // Control chars (keep \n \r \t)
-    .trim();
-}
 
 // Status detection
 function detectStatus(sessionId, data) {
   if (!statusBuffers[sessionId]) statusBuffers[sessionId] = '';
   statusBuffers[sessionId] += data;
 
-  if (statusBuffers[sessionId].length > 4000) {
-    statusBuffers[sessionId] = statusBuffers[sessionId].slice(-4000);
+  if (statusBuffers[sessionId].length > STATUS_BUFFER_LIMIT) {
+    statusBuffers[sessionId] = statusBuffers[sessionId].slice(-STATUS_BUFFER_LIMIT);
   }
 
   const buf = statusBuffers[sessionId];

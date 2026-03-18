@@ -1,5 +1,6 @@
 import pty from 'node-pty';
 import os from 'os';
+import { SCROLLBACK_LIMIT } from './utils.js';
 
 const shell = os.platform() === 'win32' ? 'powershell.exe' : process.env.SHELL || '/bin/zsh';
 
@@ -37,10 +38,9 @@ export class TerminalManager {
     };
 
     ptyProcess.onData((data) => {
-      // Store scrollback (keep last 100KB)
       entry.scrollback += data;
-      if (entry.scrollback.length > 100000) {
-        entry.scrollback = entry.scrollback.slice(-100000);
+      if (entry.scrollback.length > SCROLLBACK_LIMIT) {
+        entry.scrollback = entry.scrollback.slice(-SCROLLBACK_LIMIT);
       }
       if (onData) onData(data);
     });

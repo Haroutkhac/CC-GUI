@@ -1,5 +1,7 @@
 // Orchestrator: monitors all terminal sessions and determines what action is needed
 
+import { stripAnsi, ORCHESTRATOR_BUFFER_LIMIT } from './utils.js';
+
 export const PRIORITY = {
   CRITICAL: 4,  // Permission prompts, Y/n confirmations
   HIGH: 3,      // Waiting for user input, errors
@@ -24,17 +26,6 @@ const PRIORITY_ACTIONS = {
   [PRIORITY.NONE]: 'Idle',
 };
 
-function stripAnsi(str) {
-  return str
-    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
-    .replace(/\x1b\][^\x07]*\x07/g, '')
-    .replace(/\x1b\[\?[0-9;]*[a-zA-Z]/g, '')
-    .replace(/\x1b[()][A-Z0-9]/g, '')
-    .replace(/\x1b=/g, '')
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
-    .trim();
-}
-
 export class Orchestrator {
   constructor() {
     this.states = new Map();    // sessionId -> analysis state
@@ -46,7 +37,7 @@ export class Orchestrator {
   // Feed terminal output into the orchestrator
   ingest(sessionId, rawData, meta) {
     let buf = (this.buffers.get(sessionId) || '') + rawData;
-    if (buf.length > 8000) buf = buf.slice(-8000);
+    if (buf.length > ORCHESTRATOR_BUFFER_LIMIT) buf = buf.slice(-ORCHESTRATOR_BUFFER_LIMIT);
     this.buffers.set(sessionId, buf);
 
     const clean = stripAnsi(buf);

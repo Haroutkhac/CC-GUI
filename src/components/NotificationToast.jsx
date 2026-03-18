@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function NotificationToast({ notifications, onDismiss, onJump }) {
   return (
@@ -19,12 +19,15 @@ function NotificationItem({ notification, onDismiss, onJump }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    requestAnimationFrame(() => setVisible(true));
+    const rafId = requestAnimationFrame(() => setVisible(true));
     const timer = setTimeout(() => {
       setVisible(false);
       setTimeout(onDismiss, 300);
     }, 5000);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+    };
   }, []);
 
   const typeIcon = notification.type === 'input_needed' ? '!' : '*';

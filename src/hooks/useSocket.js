@@ -72,37 +72,42 @@ export function useSocket() {
     };
   }, []);
 
-  const createProject = useCallback(async (name, path) => {
-    const res = await fetch('/api/projects', {
+  const apiCall = useCallback(async (url, options) => {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed: ${res.status}`);
+    }
+    return res.json();
+  }, []);
+
+  const createProject = useCallback((name, path) => {
+    return apiCall('/api/projects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, path }),
     });
-    return res.json();
-  }, []);
+  }, [apiCall]);
 
-  const deleteProject = useCallback(async (id) => {
-    await fetch(`/api/projects/${id}`, { method: 'DELETE' });
-  }, []);
+  const deleteProject = useCallback((id) => {
+    return apiCall(`/api/projects/${id}`, { method: 'DELETE' });
+  }, [apiCall]);
 
-  const createSession = useCallback(async (projectId, name, command) => {
-    const res = await fetch('/api/sessions', {
+  const createSession = useCallback((projectId, name, command) => {
+    return apiCall('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectId, name, command }),
     });
-    return res.json();
-  }, []);
+  }, [apiCall]);
 
-  // Quick create: auto-name, default command, return session immediately
-  const quickCreateSession = useCallback(async (projectId) => {
-    const res = await fetch('/api/sessions', {
+  const quickCreateSession = useCallback((projectId) => {
+    return apiCall('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectId, name: `Session ${Date.now() % 10000}`, command: 'claude' }),
     });
-    return res.json();
-  }, []);
+  }, [apiCall]);
 
   const deleteSession = useCallback(async (id) => {
     await fetch(`/api/sessions/${id}`, { method: 'DELETE' });

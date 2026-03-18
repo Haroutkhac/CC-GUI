@@ -72,7 +72,7 @@ export default function TerminalOverlay({
     term.onResize(({ cols, rows }) => resizeTerminal(sessionId, cols, rows));
 
     const handleData = ({ sessionId: sid, data }) => {
-      if (sid === sessionId) term.write(data);
+      if (sid === sessionId && data) term.write(data);
     };
     const handleAttached = ({ sessionId: sid }) => {
       if (sid === sessionId) {
