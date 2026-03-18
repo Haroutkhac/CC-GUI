@@ -41,7 +41,8 @@ html, body, #root {
 .stat-active { color: #3060A0; }
 .stat-waiting { color: #C08800; animation: blink 1s infinite; }
 
-.pkmn-hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.pkmn-hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; position: relative; }
+.pkmn-hud-btns { display: flex; gap: 4px; }
 .pkmn-hud-status { font-size: 7px; padding: 4px 8px; border: 2px solid #383838; background: #F8F8F0; box-shadow: 2px 2px 0 rgba(0,0,0,0.3); }
 .pkmn-hud-status.online { color: #40A048; }
 .pkmn-hud-status.offline { color: #C04040; animation: blink 1s infinite; }
@@ -56,6 +57,22 @@ html, body, #root {
 }
 .pkmn-hud-btn:hover { background: #E8E0D0; }
 .pkmn-hud-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 rgba(0,0,0,0.3); }
+
+.key-hint-btn { padding: 8px 10px !important; }
+.key-hints {
+  background: #F8F8F0; border: 3px solid #383838;
+  padding: 8px 10px;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.key-hint { font-size: 6px; color: #606060; display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.key-hint kbd {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 5px;
+  background: #E8E0D0; border: 1px solid #C0B8A0;
+  padding: 2px 4px; min-width: 40px; text-align: center;
+  color: #383838;
+}
 
 /* === FAB (Team Status Button) === */
 .fab-team {
@@ -285,6 +302,52 @@ html, body, #root {
 .pkmn-arrow { font-size: 8px; color: #383838; opacity: 0; transition: opacity 0.05s; }
 .pkmn-menu-item:hover .pkmn-arrow { opacity: 1; }
 .pkmn-empty { font-size: 8px; color: #808080; padding: 16px 8px; line-height: 1.8; }
+
+/* === DISCOVERY / PROJECT PICKER === */
+.discover-list {
+  max-height: 300px; overflow-y: auto;
+  border: 2px solid #C0B8A0;
+  margin-bottom: 8px;
+}
+.discover-loading { font-size: 8px; color: #808080; padding: 20px; text-align: center; }
+.discover-empty { font-size: 7px; color: #808080; padding: 16px; text-align: center; }
+.discover-section { }
+.discover-section-title {
+  font-size: 6px; color: #808080;
+  padding: 6px 10px 3px;
+  border-bottom: 1px solid #E8E0D0;
+  background: #F0E8D8;
+  position: sticky; top: 0; z-index: 1;
+}
+.discover-item {
+  font-family: 'Press Start 2P', monospace;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  width: 100%; border: none;
+  border-bottom: 1px solid #F0E8D8;
+  background: transparent; cursor: pointer;
+  text-align: left;
+}
+.discover-item:hover { background: #E8E0D0; }
+.discover-item:last-child { border-bottom: none; }
+.discover-icon {
+  font-size: 6px; color: #808080;
+  border: 1px solid #C0B8A0; padding: 2px 4px;
+  flex-shrink: 0;
+}
+.discover-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.discover-name { font-size: 8px; color: #383838; }
+.discover-detail {
+  font-size: 5px; color: #A0A0A0;
+  font-family: monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.discover-badge {
+  font-size: 5px; color: #40A048;
+  border: 1px solid #40A048; padding: 1px 4px;
+  flex-shrink: 0;
+}
+.discover-badge.remote { color: #3060A0; border-color: #3060A0; }
 
 .pkmn-session-list { margin: 8px 0; max-height: 200px; overflow-y: auto; border: 2px solid #C0B8A0; }
 .pkmn-session-item {

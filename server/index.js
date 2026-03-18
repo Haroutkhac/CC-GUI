@@ -5,6 +5,7 @@ import cors from 'cors';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
+import { execFile } from 'child_process';
 import { TerminalManager } from './terminal-manager.js';
 import { Store } from './store.js';
 import { Orchestrator } from './orchestrator.js';
@@ -104,6 +105,84 @@ app.patch('/api/sessions/:id', (req, res) => {
   if (!session) return res.status(404).json({ error: 'not found' });
   io.emit('sessions:updated', store.getSessions());
   res.json(session);
+});
+
+// --- Discovery API ---
+
+// Cache discovery results for 30s
+let discoveryCache = null;
+let discoveryCacheTime = 0;
+const CACHE_TTL = 30000;
+
+function runCommand(cmd, args, timeout = 10000) {
+  return new Promise((resolve) => {
+    execFile(cmd, args, { timeout, maxBuffer: 1024 * 1024, env: { ...process.env, PATH: `${os.homedir()}/.local/bin:${process.env.PATH}` } }, (err, stdout) => {
+      // Return stdout even on error (find exits non-zero on permission-denied dirs but still has results)
+      resolve(stdout || '');
+    });
+  });
+}
+
+app.get('/api/discover', async (req, res) => {
+  const now = Date.now();
+  if (discoveryCache && now - discoveryCacheTime < CACHE_TTL) {
+    return res.json(discoveryCache);
+  }
+
+  const home = os.homedir();
+  const existingPaths = new Set(store.getProjects().map(p => p.path));
+
+  // Run local scan and GitHub list in parallel
+  const [localOutput, ghOutput] = await Promise.all([
+    runCommand('find', [
+      home, '-maxdepth', '3', '-name', '.git', '-type', 'd',
+      '-not', '-path', '*/node_modules/*',
+      '-not', '-path', '*/.nvm/*',
+      '-not', '-path', '*/.npm/*',
+      '-not', '-path', '*/.cache/*',
+      '-not', '-path', '*/.Trash/*',
+    ], 8000),
+    runCommand('gh', ['repo', 'list', '--json', 'name,nameWithOwner,url', '--limit', '50'], 10000),
+  ]);
+
+  // Parse local repos
+  const local = localOutput
+    .split('\n')
+    .filter(Boolean)
+    .map(gitDir => {
+      const repoPath = path.dirname(gitDir);
+      const name = path.basename(repoPath);
+      return { name, path: repoPath, source: 'local' };
+    })
+    .filter(r => r.name !== '.' && !r.path.includes('/.'))
+    .filter(r => !existingPaths.has(r.path));
+
+  // Parse GitHub repos
+  let github = [];
+  try {
+    const repos = JSON.parse(ghOutput || '[]');
+    // Check which ones are already cloned locally
+    const localPaths = new Map(local.map(l => [l.name.toLowerCase(), l.path]));
+    github = repos.map(r => {
+      const localPath = localPaths.get(r.name.toLowerCase());
+      return {
+        name: r.name,
+        nameWithOwner: r.nameWithOwner,
+        url: r.url,
+        path: localPath || null,
+        source: localPath ? 'both' : 'github',
+      };
+    }).filter(r => !existingPaths.has(r.path));
+  } catch (e) { /* gh not available or parse error */ }
+
+  // Merge: local repos that aren't in GitHub list + all GitHub repos
+  const githubNames = new Set(github.map(g => g.name.toLowerCase()));
+  const localOnly = local.filter(l => !githubNames.has(l.name.toLowerCase()));
+
+  const result = { local: localOnly, github };
+  discoveryCache = result;
+  discoveryCacheTime = now;
+  res.json(result);
 });
 
 // --- Socket.IO ---

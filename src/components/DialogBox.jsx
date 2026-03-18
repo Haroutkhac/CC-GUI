@@ -22,38 +22,164 @@ function TypewriterText({ text, speed = 30 }) {
   return <span>{displayed}</span>;
 }
 
-// Pokemon-style menu arrow
 function MenuArrow() {
   return <span className="pkmn-arrow">{'\u25B6'}</span>;
 }
 
 export function CreateProjectDialog({ onSubmit, onCancel }) {
+  const [mode, setMode] = useState('pick'); // 'pick' or 'manual'
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
+  const [search, setSearch] = useState('');
+  const [discovered, setDiscovered] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/discover')
+      .then(r => r.json())
+      .then(data => { setDiscovered(data); setLoading(false); })
+      .catch(() => { setDiscovered({ local: [], github: [] }); setLoading(false); });
+  }, []);
+
+  const handlePickLocal = (repo) => {
+    onSubmit(repo.name, repo.path);
+  };
+
+  const handlePickGithub = (repo) => {
+    if (repo.path) {
+      // Already cloned locally
+      onSubmit(repo.name, repo.path);
+    } else {
+      // Set manual mode with name pre-filled, user needs to clone or enter path
+      setMode('manual');
+      setName(repo.name);
+      setPath('');
+    }
+  };
+
+  if (mode === 'manual') {
+    return (
+      <div className="pkmn-overlay" onClick={onCancel}>
+        <div className="pkmn-dialog" onClick={e => e.stopPropagation()}>
+          <div className="pkmn-dialog-inner">
+            <div className="pkmn-dialog-title">NEW PROJECT</div>
+            <form onSubmit={e => { e.preventDefault(); if (name && path) onSubmit(name, path); }}>
+              <div className="pkmn-field">
+                <label>NAME</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="My Project" autoFocus />
+              </div>
+              <div className="pkmn-field">
+                <label>PATH</label>
+                <input type="text" value={path} onChange={e => setPath(e.target.value)} placeholder="/Users/you/project" />
+              </div>
+              <div className="pkmn-menu-list">
+                <button type="submit" className="pkmn-menu-item">
+                  <MenuArrow /> CREATE
+                </button>
+                <button type="button" className="pkmn-menu-item" onClick={() => setMode('pick')}>
+                  <MenuArrow /> BACK
+                </button>
+                <button type="button" className="pkmn-menu-item" onClick={onCancel}>
+                  <MenuArrow /> CANCEL
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter by search term
+  const q = search.toLowerCase();
+  const filteredLocal = (discovered?.local || []).filter(r => r.name.toLowerCase().includes(q));
+  const filteredGithub = (discovered?.github || []).filter(r =>
+    r.name.toLowerCase().includes(q) || r.nameWithOwner.toLowerCase().includes(q)
+  );
 
   return (
     <div className="pkmn-overlay" onClick={onCancel}>
-      <div className="pkmn-dialog" onClick={e => e.stopPropagation()}>
+      <div className="pkmn-dialog wide" onClick={e => e.stopPropagation()}>
         <div className="pkmn-dialog-inner">
-          <div className="pkmn-dialog-title">NEW PROJECT</div>
-          <form onSubmit={e => { e.preventDefault(); if (name && path) onSubmit(name, path); }}>
-            <div className="pkmn-field">
-              <label>NAME</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="My Project" autoFocus />
-            </div>
-            <div className="pkmn-field">
-              <label>PATH</label>
-              <input type="text" value={path} onChange={e => setPath(e.target.value)} placeholder="/Users/you/project" />
-            </div>
-            <div className="pkmn-menu-list">
-              <button type="submit" className="pkmn-menu-item">
-                <MenuArrow /> CREATE
-              </button>
-              <button type="button" className="pkmn-menu-item" onClick={onCancel}>
-                <MenuArrow /> CANCEL
-              </button>
-            </div>
-          </form>
+          <div className="pkmn-dialog-title">ADD PROJECT</div>
+
+          {/* Search */}
+          <div className="pkmn-field">
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search repos..."
+              autoFocus
+            />
+          </div>
+
+          <div className="discover-list">
+            {loading ? (
+              <div className="discover-loading">Scanning...</div>
+            ) : (
+              <>
+                {/* GitHub repos */}
+                {filteredGithub.length > 0 && (
+                  <div className="discover-section">
+                    <div className="discover-section-title">GITHUB</div>
+                    {filteredGithub.map(r => (
+                      <button
+                        key={r.nameWithOwner}
+                        className="discover-item"
+                        onClick={() => handlePickGithub(r)}
+                      >
+                        <span className="discover-icon">GH</span>
+                        <span className="discover-info">
+                          <span className="discover-name">{r.name}</span>
+                          <span className="discover-detail">
+                            {r.path ? r.path.replace(process.env?.HOME || '/Users', '~') : r.nameWithOwner}
+                          </span>
+                        </span>
+                        {r.source === 'both' && <span className="discover-badge">LOCAL</span>}
+                        {r.source === 'github' && <span className="discover-badge remote">REMOTE</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Local-only repos */}
+                {filteredLocal.length > 0 && (
+                  <div className="discover-section">
+                    <div className="discover-section-title">LOCAL</div>
+                    {filteredLocal.map(r => (
+                      <button
+                        key={r.path}
+                        className="discover-item"
+                        onClick={() => handlePickLocal(r)}
+                      >
+                        <span className="discover-icon">DIR</span>
+                        <span className="discover-info">
+                          <span className="discover-name">{r.name}</span>
+                          <span className="discover-detail">{r.path}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {filteredLocal.length === 0 && filteredGithub.length === 0 && (
+                  <div className="discover-empty">
+                    {search ? 'No matching repos found' : 'No repos discovered'}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="pkmn-menu-list">
+            <button className="pkmn-menu-item" onClick={() => setMode('manual')}>
+              <MenuArrow /> ENTER PATH MANUALLY
+            </button>
+            <button className="pkmn-menu-item" onClick={onCancel}>
+              <MenuArrow /> CANCEL
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -83,9 +83,12 @@ export default function App() {
     setActiveTerminal(sessionId);
   }, []);
 
-  // ESC to close - capture phase
+  // Global keyboard shortcuts (capture phase)
   React.useEffect(() => {
     const handleKey = (e) => {
+      const meta = e.metaKey || e.ctrlKey;
+
+      // ESC: close current overlay
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -94,11 +97,57 @@ export default function App() {
         else if (carouselProject) setCarouselProject(null);
         else if (dashboardOpen) setDashboardOpen(false);
         else if (dialog) { setDialog(null); setDialogData(null); }
+        return;
+      }
+
+      // Don't capture shortcuts when terminal is open (let terminal handle input)
+      // except for Cmd+key combos that are our shortcuts
+      if (activeTerminal && !meta) return;
+
+      // Cmd/Ctrl+K: Command center (orchestrator)
+      if (meta && e.key === 'k') {
+        e.preventDefault();
+        setOrchestratorOpen(prev => !prev);
+        return;
+      }
+
+      // Cmd/Ctrl+N: New project
+      if (meta && e.key === 'n' && !e.shiftKey) {
+        e.preventDefault();
+        setDialog('createProject');
+        return;
+      }
+
+      // Cmd/Ctrl+Shift+N: Quick-create session in first project
+      if (meta && e.key === 'N' && e.shiftKey) {
+        e.preventDefault();
+        if (projects.length > 0) {
+          handleQuickCreate(projects[0].id);
+        }
+        return;
+      }
+
+      // Cmd/Ctrl+T: Team dashboard
+      if (meta && e.key === 't') {
+        e.preventDefault();
+        setDashboardOpen(prev => !prev);
+        return;
+      }
+
+      // Number keys 1-9: jump to session by orchestrator rank (when not in terminal)
+      if (!activeTerminal && !meta && e.key >= '1' && e.key <= '9') {
+        const idx = parseInt(e.key) - 1;
+        const actionable = (orchestratorQueue || []).filter(q => q.priority >= 2);
+        if (actionable[idx]) {
+          e.preventDefault();
+          openTerminal(actionable[idx].sessionId);
+        }
+        return;
       }
     };
     window.addEventListener('keydown', handleKey, true);
     return () => window.removeEventListener('keydown', handleKey, true);
-  }, [activeTerminal, dialog, dashboardOpen, orchestratorOpen, carouselProject]);
+  }, [activeTerminal, dialog, dashboardOpen, orchestratorOpen, carouselProject, projects, orchestratorQueue, openTerminal, handleQuickCreate]);
 
   const activeSession = activeTerminal ? sessions.find(s => s.id === activeTerminal) : null;
   const projectSessionsForSwipe = activeProjectId
