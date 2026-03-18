@@ -3,7 +3,7 @@
 ## Quick Start (Local Only)
 
 ```bash
-cd /Users/harout/CC-GUI
+cd CC-GUI
 npm run dev
 ```
 Open http://localhost:5173
@@ -38,7 +38,7 @@ tailscale --socket=/tmp/tailscaled.sock ip -4
 
 ### Run the Guild server
 ```bash
-cd /Users/harout/CC-GUI
+cd CC-GUI
 npm run build
 npm start
 ```
