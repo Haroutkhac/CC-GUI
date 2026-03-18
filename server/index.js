@@ -182,7 +182,14 @@ io.on('connection', (socket) => {
 
 // Session summaries (last meaningful output line per session)
 function stripAnsi(str) {
-  return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/[\x00-\x1f]/g, ' ').trim();
+  return str
+    .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')   // CSI sequences (colors, cursor)
+    .replace(/\x1b\][^\x07]*\x07/g, '')        // OSC sequences (title, hyperlinks)
+    .replace(/\x1b\[\?[0-9;]*[a-zA-Z]/g, '')   // Private mode sequences
+    .replace(/\x1b[()][A-Z0-9]/g, '')           // Character set selection
+    .replace(/\x1b=/g, '')                       // Application keypad
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '') // Control chars (keep \n \r \t)
+    .trim();
 }
 
 // Status detection
@@ -190,11 +197,12 @@ function detectStatus(sessionId, data) {
   if (!statusBuffers[sessionId]) statusBuffers[sessionId] = '';
   statusBuffers[sessionId] += data;
 
-  if (statusBuffers[sessionId].length > 2000) {
-    statusBuffers[sessionId] = statusBuffers[sessionId].slice(-2000);
+  if (statusBuffers[sessionId].length > 4000) {
+    statusBuffers[sessionId] = statusBuffers[sessionId].slice(-4000);
   }
 
   const buf = statusBuffers[sessionId];
+  const clean = stripAnsi(buf);
   const session = store.getSession(sessionId);
   if (!session) {
     delete statusBuffers[sessionId]; // cleanup orphaned buffer
@@ -203,28 +211,33 @@ function detectStatus(sessionId, data) {
 
   let newStatus = session.status;
 
-  // Detect Claude Code waiting for input (match only at end of buffer)
-  if (/\n>\s*$/.test(buf) || /\n\?\s*$/.test(buf) || /\n❯\s*$/.test(buf)) {
+  // Check the tail of the cleaned buffer for prompt patterns
+  const tail = clean.slice(-200);
+
+  // Claude Code waiting for input: ">" or "❯" prompt at end, or "?" for confirmations
+  if (/(?:^|\n)\s*>\s*$/.test(tail) || /❯\s*$/.test(tail) || /\?\s*$/.test(tail) || /\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail)) {
     newStatus = 'waiting';
-  } else if (/(Thinking|Working|Running|Executing|Reading|Writing|Editing)/i.test(buf)) {
+  } else if (/(Thinking|Working|Running|Executing|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i.test(tail)) {
     newStatus = 'working';
   }
 
   if (newStatus !== session.status) {
     store.updateSession(sessionId, { status: newStatus });
     io.emit('sessions:updated', store.getSessions());
-    io.emit('notification', {
-      sessionId,
-      type: newStatus === 'waiting' ? 'input_needed' : 'status_change',
-      message: newStatus === 'waiting'
-        ? `${session.name} needs your input!`
-        : `${session.name} is ${newStatus}`,
-      projectId: session.projectId,
-    });
+
+    // Only notify for waiting state (input needed)
+    if (newStatus === 'waiting') {
+      io.emit('notification', {
+        sessionId,
+        type: 'input_needed',
+        message: `${session.name} needs your input!`,
+        projectId: session.projectId,
+      });
+    }
   }
 
   // Extract last meaningful line for summaries
-  const lines = stripAnsi(buf).split('\n').filter(l => l.trim().length > 0);
+  const lines = clean.split('\n').filter(l => l.trim().length > 0);
   const lastLine = lines.length > 0 ? lines[lines.length - 1].slice(0, 120) : '';
   if (lastLine && sessionSummaries[sessionId] !== lastLine) {
     sessionSummaries[sessionId] = lastLine;

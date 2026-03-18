@@ -11,7 +11,17 @@ export class TerminalManager {
   create(sessionId, command, args = [], options = {}) {
     const { cwd, onData, onExit } = options;
 
-    const env = { ...process.env, TERM: 'xterm-256color' };
+    const home = process.env.HOME || '/Users/' + process.env.USER;
+    const extraPaths = [
+      `${home}/.local/bin`,
+      `${home}/.npm-global/bin`,
+      '/usr/local/bin',
+    ];
+    const env = {
+      ...process.env,
+      TERM: 'xterm-256color',
+      PATH: [...extraPaths, process.env.PATH].join(':'),
+    };
 
     const ptyProcess = pty.spawn(command || shell, args, {
       name: 'xterm-256color',

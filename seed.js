@@ -29,7 +29,7 @@ async function seed() {
       await fetch(`${BASE}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: project.id, name: starter, command: 'echo ' + starter }),
+        body: JSON.stringify({ projectId: project.id, name: starter, command: 'claude' }),
       });
     }
   }
