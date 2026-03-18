@@ -50,9 +50,10 @@ export default function HUD({ projects, sessions, connected, orchestratorQueue, 
         </div>
         {showKeys && (
           <div className="key-hints">
-            <div className="key-hint"><kbd>Cmd+K</kbd> Command Center</div>
-            <div className="key-hint"><kbd>Cmd+N</kbd> New Project</div>
-            <div className="key-hint"><kbd>Cmd+T</kbd> Team Dashboard</div>
+            <div className="key-hint"><kbd>K</kbd> Command Center</div>
+            <div className="key-hint"><kbd>N</kbd> New Project</div>
+            <div className="key-hint"><kbd>S</kbd> Spawn Session</div>
+            <div className="key-hint"><kbd>T</kbd> Team Dashboard</div>
             <div className="key-hint"><kbd>1-9</kbd> Jump to session</div>
             <div className="key-hint"><kbd>ESC</kbd> Close / Back</div>
           </div>

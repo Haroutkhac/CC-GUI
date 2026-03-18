@@ -84,11 +84,10 @@ export default function App() {
   }, []);
 
   // Global keyboard shortcuts (capture phase)
+  // Plain letter keys — no Cmd/Ctrl needed. Ignored when typing in inputs or terminal.
   React.useEffect(() => {
     const handleKey = (e) => {
-      const meta = e.metaKey || e.ctrlKey;
-
-      // ESC: close current overlay
+      // ESC always works
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
@@ -100,49 +99,39 @@ export default function App() {
         return;
       }
 
-      // Don't capture shortcuts when terminal is open (let terminal handle input)
-      // except for Cmd+key combos that are our shortcuts
-      if (activeTerminal && !meta) return;
+      // Skip shortcuts when focused on an input/textarea or inside terminal
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (activeTerminal) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-      // Cmd/Ctrl+K: Command center (orchestrator)
-      if (meta && e.key === 'k') {
-        e.preventDefault();
-        setOrchestratorOpen(prev => !prev);
-        return;
-      }
-
-      // Cmd/Ctrl+N: New project
-      if (meta && e.key === 'n' && !e.shiftKey) {
-        e.preventDefault();
-        setDialog('createProject');
-        return;
-      }
-
-      // Cmd/Ctrl+Shift+N: Quick-create session in first project
-      if (meta && e.key === 'N' && e.shiftKey) {
-        e.preventDefault();
-        if (projects.length > 0) {
-          handleQuickCreate(projects[0].id);
-        }
-        return;
-      }
-
-      // Cmd/Ctrl+T: Team dashboard
-      if (meta && e.key === 't') {
-        e.preventDefault();
-        setDashboardOpen(prev => !prev);
-        return;
-      }
-
-      // Number keys 1-9: jump to session by orchestrator rank (when not in terminal)
-      if (!activeTerminal && !meta && e.key >= '1' && e.key <= '9') {
-        const idx = parseInt(e.key) - 1;
-        const actionable = (orchestratorQueue || []).filter(q => q.priority >= 2);
-        if (actionable[idx]) {
+      switch (e.key) {
+        case 'k': // Command center
           e.preventDefault();
-          openTerminal(actionable[idx].sessionId);
-        }
-        return;
+          setOrchestratorOpen(prev => !prev);
+          break;
+        case 'n': // New project
+          e.preventDefault();
+          setDialog('createProject');
+          break;
+        case 's': // Quick-spawn session in first project
+          e.preventDefault();
+          if (projects.length > 0) handleQuickCreate(projects[0].id);
+          break;
+        case 't': // Team dashboard
+          e.preventDefault();
+          setDashboardOpen(prev => !prev);
+          break;
+        default:
+          // 1-9: jump to session by orchestrator rank
+          if (e.key >= '1' && e.key <= '9') {
+            const idx = parseInt(e.key) - 1;
+            const actionable = (orchestratorQueue || []).filter(q => q.priority >= 2);
+            if (actionable[idx]) {
+              e.preventDefault();
+              openTerminal(actionable[idx].sessionId);
+            }
+          }
       }
     };
     window.addEventListener('keydown', handleKey, true);
