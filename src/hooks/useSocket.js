@@ -8,6 +8,7 @@ export function useSocket() {
   const [sessions, setSessions] = useState([]);
   const [summaries, setSummaries] = useState({});
   const [notifications, setNotifications] = useState([]);
+  const [orchestratorQueue, setOrchestratorQueue] = useState([]);
 
   useEffect(() => {
     const socket = io(window.location.origin, {
@@ -22,6 +23,7 @@ export function useSocket() {
     socket.on('projects:updated', (data) => setProjects(data));
     socket.on('sessions:updated', (data) => setSessions(data));
     socket.on('sessions:summaries', (data) => setSummaries(data));
+    socket.on('orchestrator:update', (data) => setOrchestratorQueue(data));
 
     socket.on('notification', (notif) => {
       setNotifications(prev => [...prev.slice(-10), { ...notif, id: Date.now(), time: new Date() }]);
@@ -64,6 +66,7 @@ export function useSocket() {
       socket.off('projects:updated');
       socket.off('sessions:updated');
       socket.off('sessions:summaries');
+      socket.off('orchestrator:update');
       socket.off('notification');
       socket.close();
     };
@@ -132,6 +135,7 @@ export function useSocket() {
     sessions,
     summaries,
     notifications,
+    orchestratorQueue,
     createProject,
     deleteProject,
     createSession,

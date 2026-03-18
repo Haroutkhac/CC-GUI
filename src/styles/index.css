@@ -474,6 +474,117 @@ html, body, #root {
 }
 .dpad-action:active { background: #E0D8C8; transform: translate(1px, 1px); }
 
+/* === ORCHESTRATOR / COMMAND CENTER === */
+.orch-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 65;
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.1s;
+}
+.orch-panel {
+  background: #F8F8F0;
+  border: 4px solid #383838;
+  width: 95%; max-width: 560px;
+  max-height: 85vh;
+  display: flex; flex-direction: column;
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.5);
+  animation: dialogIn 0.15s ease-out;
+}
+.orch-header {
+  padding: 12px 16px;
+  border-bottom: 3px solid #383838;
+  background: #383838; color: #F8F8F0;
+}
+.orch-header-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+}
+.orch-title { font-size: 11px; letter-spacing: 1px; }
+.orch-subtitle { font-size: 7px; color: #C0B8A0; margin-top: 6px; display: flex; gap: 6px; align-items: center; }
+.orch-sep { color: #606060; }
+.orch-urgent { color: #C08800; animation: blink 1s infinite; }
+.orch-close {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px; background: none; border: 2px solid #808080;
+  color: #F8F8F0; padding: 4px 8px; cursor: pointer;
+}
+.orch-close:hover { border-color: #F8F8F0; }
+
+.orch-body {
+  flex: 1; overflow-y: auto;
+  padding-bottom: 8px;
+}
+.orch-empty { font-size: 8px; color: #808080; padding: 32px 16px; text-align: center; line-height: 2; }
+
+.orch-item {
+  font-family: 'Press Start 2P', monospace;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  border: none; border-bottom: 2px solid #E8E0D0;
+  width: 100%; cursor: pointer; text-align: left;
+  transition: background 0.05s;
+}
+.orch-item:last-child { border-bottom: none; }
+.orch-item:hover { background: #E8E0D0 !important; }
+
+.orch-item-badge {
+  flex-shrink: 0;
+  width: 18px; height: 18px;
+  border: 2px solid;
+  display: flex; align-items: center; justify-content: center;
+}
+.orch-item-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+.orch-item-dot.pulse { animation: blink 1s infinite; }
+
+.orch-item-info { flex: 1; min-width: 0; }
+.orch-item-top {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 7px; color: #383838;
+  margin-bottom: 3px;
+}
+.orch-item-name { font-weight: bold; }
+.orch-item-project {
+  font-size: 6px; color: #808080;
+  padding: 1px 4px; border: 1px solid #C0B8A0;
+}
+.orch-item-time { font-size: 6px; color: #B0B0B0; margin-left: auto; }
+.orch-item-reason { font-size: 7px; margin-bottom: 2px; }
+.orch-item-context {
+  font-size: 5px; color: #808080;
+  font-family: monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 100%;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.orch-item-action {
+  flex-shrink: 0;
+  font-size: 6px;
+  padding: 4px 8px;
+  border: 2px solid;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.orch-item-action.urgent { animation: blink 1s infinite; }
+
+/* HUD orchestrator button */
+.orch-btn { position: relative; }
+.orch-hud-badge {
+  position: absolute;
+  top: -8px; right: -8px;
+  background: #C04040;
+  color: #FFF;
+  font-size: 7px;
+  min-width: 18px; height: 18px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #383838;
+  animation: blink 1s infinite;
+}
+
 /* === ANIMATIONS === */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dialogIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }

@@ -6,11 +6,12 @@ import NotificationToast from './components/NotificationToast.jsx';
 import HUD from './components/HUD.jsx';
 import StatusDashboard from './components/StatusDashboard.jsx';
 import SessionCarousel from './components/SessionCarousel.jsx';
+import OrchestratorPanel from './components/OrchestratorPanel.jsx';
 import { useSocket } from './hooks/useSocket.js';
 
 export default function App() {
   const {
-    socket, connected, projects, sessions, summaries, notifications,
+    socket, connected, projects, sessions, summaries, notifications, orchestratorQueue,
     createProject, deleteProject, createSession, quickCreateSession, deleteSession,
     attachTerminal, detachTerminal, sendTerminalInput, resizeTerminal,
     dismissNotification,
@@ -21,6 +22,7 @@ export default function App() {
   const [dialog, setDialog] = useState(null);
   const [dialogData, setDialogData] = useState(null);
   const [dashboardOpen, setDashboardOpen] = useState(false);
+  const [orchestratorOpen, setOrchestratorOpen] = useState(false);
   const [carouselProject, setCarouselProject] = useState(null);
 
   // Open terminal for a session
@@ -88,6 +90,7 @@ export default function App() {
         e.preventDefault();
         e.stopPropagation();
         if (activeTerminal) setActiveTerminal(null);
+        else if (orchestratorOpen) setOrchestratorOpen(false);
         else if (carouselProject) setCarouselProject(null);
         else if (dashboardOpen) setDashboardOpen(false);
         else if (dialog) { setDialog(null); setDialogData(null); }
@@ -95,7 +98,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKey, true);
     return () => window.removeEventListener('keydown', handleKey, true);
-  }, [activeTerminal, dialog, dashboardOpen, carouselProject]);
+  }, [activeTerminal, dialog, dashboardOpen, orchestratorOpen, carouselProject]);
 
   const activeSession = activeTerminal ? sessions.find(s => s.id === activeTerminal) : null;
   const projectSessionsForSwipe = activeProjectId
@@ -117,7 +120,9 @@ export default function App() {
         projects={projects}
         sessions={sessions}
         connected={connected}
+        orchestratorQueue={orchestratorQueue}
         onCreateProject={() => setDialog('createProject')}
+        onOpenOrchestrator={() => setOrchestratorOpen(true)}
       />
 
       <MobileControls />
@@ -130,6 +135,20 @@ export default function App() {
         {waitingCount > 0 && <span className="fab-badge">{waitingCount}</span>}
         TEAM
       </button>
+
+      {/* Orchestrator Panel */}
+      {orchestratorOpen && (
+        <OrchestratorPanel
+          queue={orchestratorQueue}
+          sessions={sessions}
+          projects={projects}
+          onSelectSession={(sessionId) => {
+            setOrchestratorOpen(false);
+            openTerminal(sessionId);
+          }}
+          onClose={() => setOrchestratorOpen(false)}
+        />
+      )}
 
       {/* Status Dashboard */}
       {dashboardOpen && (

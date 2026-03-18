@@ -1,8 +1,9 @@
 import React from 'react';
 
-export default function HUD({ projects, sessions, connected, onCreateProject }) {
+export default function HUD({ projects, sessions, connected, orchestratorQueue, onCreateProject, onOpenOrchestrator }) {
   const activeCount = sessions.filter(s => s.status === 'active' || s.status === 'working').length;
   const waitingCount = sessions.filter(s => s.status === 'waiting').length;
+  const urgentCount = (orchestratorQueue || []).filter(q => q.priority >= 3).length;
 
   return (
     <div className="pkmn-hud">
@@ -30,6 +31,10 @@ export default function HUD({ projects, sessions, connected, onCreateProject }) 
         <span className={`pkmn-hud-status ${connected ? 'online' : 'offline'}`}>
           {connected ? 'ONLINE' : 'OFFLINE'}
         </span>
+        <button className="pkmn-hud-btn orch-btn" onClick={onOpenOrchestrator}>
+          {urgentCount > 0 && <span className="orch-hud-badge">{urgentCount}</span>}
+          CMD CTR
+        </button>
         <button className="pkmn-hud-btn" onClick={onCreateProject}>
           + TABLE
         </button>

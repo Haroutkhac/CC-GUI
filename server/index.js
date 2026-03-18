@@ -7,6 +7,7 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { TerminalManager } from './terminal-manager.js';
 import { Store } from './store.js';
+import { Orchestrator } from './orchestrator.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv.includes('--production');
@@ -23,8 +24,14 @@ app.use(express.json());
 
 const store = new Store(path.join(__dirname, '..', 'data', 'store.json'));
 const terminalManager = new TerminalManager();
+const orchestrator = new Orchestrator();
 const statusBuffers = {};
 const sessionSummaries = {};
+
+// Broadcast orchestrator state whenever priorities change
+orchestrator.onChange = () => {
+  io.emit('orchestrator:update', orchestrator.getRanked());
+};
 
 // Serve static files in production
 if (isProduction) {
@@ -56,6 +63,7 @@ app.delete('/api/projects/:id', (req, res) => {
     terminalManager.kill(session.id);
     delete statusBuffers[session.id];
     delete sessionSummaries[session.id];
+    orchestrator.remove(session.id);
     store.deleteSession(session.id);
   }
 
@@ -85,6 +93,7 @@ app.delete('/api/sessions/:id', (req, res) => {
   store.deleteSession(req.params.id);
   delete statusBuffers[req.params.id];
   delete sessionSummaries[req.params.id];
+  orchestrator.remove(req.params.id);
   io.emit('sessions:updated', store.getSessions());
   io.emit('projects:updated', store.getProjects());
   res.json({ ok: true });
@@ -105,6 +114,7 @@ io.on('connection', (socket) => {
   socket.emit('projects:updated', store.getProjects());
   socket.emit('sessions:updated', store.getSessions());
   socket.emit('sessions:summaries', sessionSummaries);
+  socket.emit('orchestrator:update', orchestrator.getRanked());
 
   socket.on('terminal:attach', (sessionId) => {
     const session = store.getSession(sessionId);
@@ -135,11 +145,24 @@ io.on('connection', (socket) => {
         onData: (data) => {
           io.to(`session:${sessionId}`).emit('terminal:data', { sessionId, data });
           detectStatus(sessionId, data);
+          const sess = store.getSession(sessionId);
+          const proj = sess ? store.getProject(sess.projectId) : null;
+          orchestrator.ingest(sessionId, data, {
+            sessionName: sess?.name,
+            projectName: proj?.name,
+            projectId: sess?.projectId,
+          });
         },
         onExit: (code) => {
           store.updateSession(sessionId, { status: 'exited', exitCode: code });
           io.to(`session:${sessionId}`).emit('terminal:exit', { sessionId, code });
           io.emit('sessions:updated', store.getSessions());
+          const sess = store.getSession(sessionId);
+          orchestrator.onStatusChange(sessionId, 'exited', {
+            exitCode: code,
+            sessionName: sess?.name,
+            projectId: sess?.projectId,
+          });
         },
       });
 
