@@ -99,11 +99,12 @@ export default function App() {
         return;
       }
 
-      // Skip shortcuts when focused on an input/textarea or inside terminal
+      // Skip shortcuts when focused on an input/textarea, inside terminal, or overlay is open
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (activeTerminal) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (dialog || dashboardOpen || carouselProject) return;
 
       switch (e.key) {
         case 'k': // Command center

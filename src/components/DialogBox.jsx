@@ -133,7 +133,7 @@ export function CreateProjectDialog({ onSubmit, onCancel }) {
                         <span className="discover-info">
                           <span className="discover-name">{r.name}</span>
                           <span className="discover-detail">
-                            {r.path ? r.path.replace(process.env?.HOME || '/Users', '~') : r.nameWithOwner}
+                            {r.path ? r.path.replace(/^\/Users\/[^/]+/, '~') : r.nameWithOwner}
                           </span>
                         </span>
                         {r.source === 'both' && <span className="discover-badge">LOCAL</span>}
