@@ -4,7 +4,7 @@ export default function HUD({ projects, sessions, connected, orchestratorQueue, 
   const activeCount = sessions.filter(s => s.status === 'active' || s.status === 'working').length;
   const waitingSessions = sessions.filter(s => s.status === 'waiting');
   const waitingCount = waitingSessions.length;
-  const waitingNames = waitingSessions.map(s => (s.starter || 'Unknown').charAt(0).toUpperCase() + (s.starter || 'unknown').slice(1));
+  const waitingNames = waitingSessions.map(s => { const name = s.starter || 'unknown'; return name.charAt(0).toUpperCase() + name.slice(1); });
   const urgentCount = (orchestratorQueue || []).filter(q => q.priority >= 3).length;
   const [showKeys, setShowKeys] = useState(false);
 
