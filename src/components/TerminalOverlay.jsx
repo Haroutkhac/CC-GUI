@@ -9,6 +9,7 @@ export default function TerminalOverlay({
   sessionName,
   socket,
   onClose,
+  onDismiss,
   sendInput,
   resizeTerminal,
   attachTerminal,
@@ -184,6 +185,21 @@ export default function TerminalOverlay({
     { label: 'Create PR', cmd: 'gh pr create --fill\r' },
   ];
 
+  // Ctrl/Cmd+Shift+X to dismiss from terminal
+  useEffect(() => {
+    const handleDismissKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (confirm(`Release ${sessionName || 'this Pokemon'}?`)) {
+          onDismiss?.(sessionId);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleDismissKey, true);
+    return () => window.removeEventListener('keydown', handleDismissKey, true);
+  }, [sessionId, sessionName, onDismiss]);
+
   // Session position indicator
   const currentIdx = projectSessions ? projectSessions.findIndex(s => s.id === sessionId) : -1;
   const totalSessions = projectSessions ? projectSessions.length : 0;
@@ -210,6 +226,15 @@ export default function TerminalOverlay({
             className={`terminal-btn ${gitMenuOpen ? 'active' : ''}`}
             onClick={() => setGitMenuOpen(!gitMenuOpen)}
           >GIT</button>
+          <button
+            className="terminal-btn release"
+            title="Release Pokemon (Ctrl+Shift+X)"
+            onClick={() => {
+              if (confirm(`Release ${sessionName || 'this Pokemon'}?`)) {
+                onDismiss?.(sessionId);
+              }
+            }}
+          >RLS</button>
           <button className="terminal-close" onClick={onClose}>X</button>
         </div>
       </div>
