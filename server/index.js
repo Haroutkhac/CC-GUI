@@ -6,6 +6,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { execFile } from 'child_process';
+import fs from 'fs';
 import { TerminalManager } from './terminal-manager.js';
 import { Store } from './store.js';
 import { Orchestrator } from './orchestrator.js';
@@ -51,7 +52,11 @@ app.post('/api/projects', (req, res) => {
   if (!name || !projectPath) {
     return res.status(400).json({ error: 'name and path required' });
   }
-  const project = store.createProject(name, projectPath);
+  const resolved = path.resolve(projectPath.replace(/^~/, os.homedir()));
+  if (!fs.existsSync(resolved)) {
+    return res.status(400).json({ error: `Path does not exist: ${resolved}` });
+  }
+  const project = store.createProject(name, resolved);
   io.emit('projects:updated', store.getProjects());
   res.json(project);
 });
@@ -222,31 +227,37 @@ io.on('connection', (socket) => {
       const command = parts[0];
       const commandArgs = parts.slice(1);
 
-      term = terminalManager.create(sessionId, command, commandArgs, {
-        cwd: project.path,
-        onData: (data) => {
-          io.to(`session:${sessionId}`).emit('terminal:data', { sessionId, data });
-          detectStatus(sessionId, data);
-          const sess = store.getSession(sessionId);
-          const proj = sess ? store.getProject(sess.projectId) : null;
-          orchestrator.ingest(sessionId, data, {
-            sessionName: sess?.name,
-            projectName: proj?.name,
-            projectId: sess?.projectId,
-          });
-        },
-        onExit: (code) => {
-          store.updateSession(sessionId, { status: 'exited', exitCode: code });
-          io.to(`session:${sessionId}`).emit('terminal:exit', { sessionId, code });
-          io.emit('sessions:updated', store.getSessions());
-          const sess = store.getSession(sessionId);
-          orchestrator.onStatusChange(sessionId, 'exited', {
-            exitCode: code,
-            sessionName: sess?.name,
-            projectId: sess?.projectId,
-          });
-        },
-      });
+      try {
+        term = terminalManager.create(sessionId, command, commandArgs, {
+          cwd: project.path,
+          onData: (data) => {
+            io.to(`session:${sessionId}`).emit('terminal:data', { sessionId, data });
+            detectStatus(sessionId, data);
+            const sess = store.getSession(sessionId);
+            const proj = sess ? store.getProject(sess.projectId) : null;
+            orchestrator.ingest(sessionId, data, {
+              sessionName: sess?.name,
+              projectName: proj?.name,
+              projectId: sess?.projectId,
+            });
+          },
+          onExit: (code) => {
+            store.updateSession(sessionId, { status: 'exited', exitCode: code });
+            io.to(`session:${sessionId}`).emit('terminal:exit', { sessionId, code });
+            io.emit('sessions:updated', store.getSessions());
+            const sess = store.getSession(sessionId);
+            orchestrator.onStatusChange(sessionId, 'exited', {
+              exitCode: code,
+              sessionName: sess?.name,
+              projectId: sess?.projectId,
+            });
+          },
+        });
+      } catch (err) {
+        console.error(`Failed to spawn terminal for session ${sessionId}:`, err.message);
+        socket.emit('terminal:error', { sessionId, error: `Failed to start terminal: ${err.message}` });
+        return;
+      }
 
       store.updateSession(sessionId, { status: 'active' });
       io.emit('sessions:updated', store.getSessions());

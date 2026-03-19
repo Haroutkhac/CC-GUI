@@ -113,6 +113,7 @@ export class GameEngine {
     this.sessions = sessions || [];
     this.tablePositions = [];
     this.npcPositions = [];
+    this._labelWidths = {};
 
     // Reset map
     this.map = this.generateBaseMap();
@@ -464,7 +465,34 @@ export class GameEngine {
       }
     }
 
-    // Project labels removed per user request - tables identified by their Pokemon
+    // Project name labels above tables
+    if (this.tablePositions.length > 0) {
+      const fontSize = 5 * s;
+      const pad = 3 * s;
+      const lh = fontSize + pad * 2;
+      ctx.save();
+      ctx.font = `${fontSize}px "Press Start 2P", monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (const table of this.tablePositions) {
+        const label = table.name || 'Project';
+        // Cache measureText result per label
+        if (!this._labelWidths) this._labelWidths = {};
+        if (this._labelWidths[label] === undefined) {
+          this._labelWidths[label] = ctx.measureText(label).width;
+        }
+        const lw = this._labelWidths[label] + pad * 2;
+        const px = table.x * tileSize;
+        const py = table.y * tileSize;
+        const cx = px + tileSize / 2;
+        const cy = py - 8 * s;
+        ctx.fillStyle = 'rgba(56, 56, 56, 0.85)';
+        ctx.fillRect(Math.round(cx - lw / 2), Math.round(cy - lh / 2), Math.round(lw), Math.round(lh));
+        ctx.fillStyle = '#F8F8F0';
+        ctx.fillText(label, cx, cy);
+      }
+      ctx.restore();
+    }
 
     ctx.restore();
 

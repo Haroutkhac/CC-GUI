@@ -789,17 +789,13 @@ export function drawPokemonWithStatus(ctx, x, y, starterName, status, scale = 1)
     ctx.fill();
   }
 
-  // Bounce offset for working Pokemon
-  const bounceY = status === 'working' ? Math.sin(Date.now() / 250) * 3 * scale : 0;
-
-  // Shadow (shrinks when bouncing up)
-  const shadowScale = status === 'working' ? 1 - Math.abs(Math.sin(Date.now() / 250)) * 0.3 : 1;
+  // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.18)';
   ctx.beginPath();
-  ctx.ellipse(x + 8 * scale, y + 15.5 * scale, 6 * scale * shadowScale, 1.5 * scale * shadowScale, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + 8 * scale, y + 15.5 * scale, 6 * scale, 1.5 * scale, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  drawPokemon(ctx, x, y - bounceY, starterName, scale);
+  drawPokemon(ctx, x, y, starterName, scale);
 
   // Status indicator
   if (status === 'waiting') {
@@ -812,23 +808,48 @@ export function drawPokemonWithStatus(ctx, x, y, starterName, status, scale = 1)
 }
 
 function drawStatusBubble(ctx, x, y, char, color, s) {
-  const bounce = Math.sin(Date.now() / 200) * 2 * s;
-  // Bubble
+  const bounce = Math.sin(Date.now() / 300) * 1.5 * s;
+  const bx = Math.round(x);
+  const by = Math.round(y + bounce);
+  const w = 10 * s;
+  const h = 10 * s;
+  // Bubble background
   ctx.fillStyle = '#FFF';
-  ctx.fillRect(x, y + bounce, 8 * s, 8 * s);
+  ctx.fillRect(bx, by, w, h);
+  // Border (pixel-art: draw 4 edges individually for crisp 1px look)
   ctx.fillStyle = '#383838';
-  ctx.strokeStyle = '#383838';
-  ctx.lineWidth = s;
-  ctx.strokeRect(x, y + bounce, 8 * s, 8 * s);
-  // Triangle pointer
+  ctx.fillRect(bx, by, w, s);           // top
+  ctx.fillRect(bx, by + h - s, w, s);   // bottom
+  ctx.fillRect(bx, by, s, h);           // left
+  ctx.fillRect(bx + w - s, by, s, h);   // right
+  // Pointer triangle (two stacked pixels)
   ctx.fillStyle = '#FFF';
-  ctx.fillRect(x + 3 * s, y + bounce + 8 * s, 2 * s, 2 * s);
-  // Character
-  ctx.fillStyle = color;
-  ctx.font = `bold ${6 * s}px "Press Start 2P", monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillText(char, x + 4 * s, y + bounce + 6 * s);
-  ctx.textAlign = 'start';
+  ctx.fillRect(bx + 4 * s, by + h, 2 * s, s);
+  ctx.fillRect(bx + 4.5 * s, by + h + s, s, s);
+  // Character — draw as pixel block instead of font
+  if (char === '!') {
+    ctx.fillStyle = color;
+    // Exclamation mark: 2px wide vertical bar + dot
+    const cx = bx + 4 * s;
+    const cy = by + 2 * s;
+    ctx.fillRect(cx, cy, 2 * s, 4 * s);           // vertical bar
+    ctx.fillRect(cx, cy + 5 * s, 2 * s, s);       // dot
+  } else if (char === 'X') {
+    ctx.fillStyle = color;
+    const cx = bx + 3 * s;
+    const cy = by + 2.5 * s;
+    // Simple X shape
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(cx + i * s, cy + i * s, s, s);
+      ctx.fillRect(cx + (3 - i) * s, cy + i * s, s, s);
+    }
+  } else {
+    ctx.fillStyle = color;
+    ctx.font = `bold ${6 * s}px "Press Start 2P", monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(char, bx + w / 2, by + 7.5 * s);
+    ctx.textAlign = 'start';
+  }
 }
 
 function drawStatusDots(ctx, x, y, s) {
