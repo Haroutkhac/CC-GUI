@@ -57,6 +57,12 @@ html, body, #root {
 }
 .pkmn-hud-btn:hover { background: #E8E0D0; }
 .pkmn-hud-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 rgba(0,0,0,0.3); }
+.hud-kbd {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px; padding: 2px 4px; margin-left: 4px;
+  background: #383838; color: #F8F8F0;
+  border-radius: 2px;
+}
 
 .key-hint-btn { padding: 8px 10px !important; }
 .key-hints {
@@ -654,6 +660,7 @@ html, body, #root {
 @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes slideFromBottom { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes session-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
 /* === XTERM === */
 .xterm { padding: 4px; }

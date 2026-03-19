@@ -63,10 +63,16 @@ export default function TerminalOverlay({
     term.loadAddon(fitAddon);
     term.loadAddon(webLinksAddon);
     term.open(termRef.current);
-    fitAddon.fit();
 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
+
+    // Defer fit() until the DOM has laid out and the terminal has dimensions
+    const rafId = requestAnimationFrame(() => {
+      if (xtermRef.current === term) {
+        try { fitAddon.fit(); } catch (_) {}
+      }
+    });
 
     term.onData((data) => sendInput(sessionId, data));
     term.onResize(({ cols, rows }) => resizeTerminal(sessionId, cols, rows));
@@ -102,6 +108,7 @@ export default function TerminalOverlay({
     setTimeout(() => term.focus(), 200);
 
     return () => {
+      cancelAnimationFrame(rafId);
       socket.off('terminal:data', handleData);
       socket.off('terminal:attached', handleAttached);
       socket.off('terminal:exit', handleExit);

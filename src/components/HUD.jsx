@@ -35,10 +35,10 @@ export default function HUD({ projects, sessions, connected, orchestratorQueue, 
         <div className="pkmn-hud-btns">
           <button className="pkmn-hud-btn orch-btn" onClick={onOpenOrchestrator}>
             {urgentCount > 0 && <span className="orch-hud-badge">{urgentCount}</span>}
-            CMD CTR
+            CMD CTR <kbd className="hud-kbd">K</kbd>
           </button>
           <button className="pkmn-hud-btn" onClick={onCreateProject}>
-            + TABLE
+            + TABLE <kbd className="hud-kbd">N</kbd>
           </button>
           <button
             className="pkmn-hud-btn key-hint-btn"

@@ -74,8 +74,12 @@ export default function App() {
 
   // Quick create from carousel
   const handleQuickCreate = useCallback(async (projectId) => {
-    const session = await quickCreateSession(projectId);
-    if (session?.id) openTerminal(session.id);
+    try {
+      const session = await quickCreateSession(projectId);
+      if (session?.id) openTerminal(session.id);
+    } catch (err) {
+      console.error('Failed to create session:', err);
+    }
   }, [quickCreateSession, openTerminal]);
 
   // Switch terminal (swipe)
