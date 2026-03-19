@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 const STATUS_COLORS = {
   idle: '#9E9E9E',
@@ -38,25 +38,33 @@ export default function SessionCarousel({
   onShowOptions,
   onClose,
 }) {
+  // Use refs for callback props to keep the keydown listener stable
+  const onCreateSessionRef = useRef(onCreateSession);
+  onCreateSessionRef.current = onCreateSession;
+  const onSelectSessionRef = useRef(onSelectSession);
+  onSelectSessionRef.current = onSelectSession;
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+
   // Keyboard: 1-9 to jump, N to create (ESC handled by App.jsx global handler)
   useEffect(() => {
     const handleKey = (e) => {
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
-        onCreateSession?.();
+        onCreateSessionRef.current?.();
         return;
       }
       if (e.key >= '1' && e.key <= '9') {
         const idx = parseInt(e.key) - 1;
-        if (idx < sessions.length) {
+        if (idx < sessionsRef.current.length) {
           e.preventDefault();
-          onSelectSession?.(sessions[idx].id);
+          onSelectSessionRef.current?.(sessionsRef.current[idx].id);
         }
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [sessions, onSelectSession, onCreateSession]);
+  }, []);
 
   return (
     <div style={styles.overlay}>
