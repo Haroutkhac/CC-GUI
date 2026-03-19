@@ -249,6 +249,7 @@ export default function App() {
           sessionName={activeSession?.name}
           socket={socket}
           onClose={() => setActiveTerminal(null)}
+          onDismiss={(id) => { deleteSession(id); setActiveTerminal(null); }}
           sendInput={sendTerminalInput}
           resizeTerminal={resizeTerminal}
           attachTerminal={attachTerminal}
