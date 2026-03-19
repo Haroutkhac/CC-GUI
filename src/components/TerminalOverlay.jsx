@@ -25,7 +25,19 @@ export default function TerminalOverlay({
   const isMobile = 'ontouchstart' in window;
 
   useEffect(() => {
-    if (!termRef.current || !socket) return;
+    const container = termRef.current;
+    if (!container || !socket) return;
+
+    // Clean up any prior terminal (StrictMode double-mount protection)
+    if (xtermRef.current) {
+      xtermRef.current.dispose();
+      xtermRef.current = null;
+      fitAddonRef.current = null;
+    }
+    // Clear any leftover xterm DOM from a previous instance
+    container.innerHTML = '';
+
+    let disposed = false;
 
     const term = new Terminal({
       cursorBlink: true,
@@ -62,37 +74,43 @@ export default function TerminalOverlay({
     const webLinksAddon = new WebLinksAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(webLinksAddon);
-    term.open(termRef.current);
+    term.open(container);
 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
     // Defer fit() until the DOM has laid out and the terminal has dimensions
     const rafId = requestAnimationFrame(() => {
-      if (xtermRef.current === term) {
+      if (!disposed) {
         try { fitAddon.fit(); } catch (_) {}
       }
     });
 
-    term.onData((data) => sendInput(sessionId, data));
-    term.onResize(({ cols, rows }) => resizeTerminal(sessionId, cols, rows));
+    term.onData((data) => {
+      if (!disposed) sendInput(sessionId, data);
+    });
+    term.onResize(({ cols, rows }) => {
+      if (!disposed) resizeTerminal(sessionId, cols, rows);
+    });
 
     const handleData = ({ sessionId: sid, data }) => {
-      if (sid === sessionId && data) term.write(data);
+      if (!disposed && sid === sessionId && data) term.write(data);
     };
     const handleAttached = ({ sessionId: sid }) => {
-      if (sid === sessionId) {
+      if (!disposed && sid === sessionId) {
         setTimeout(() => {
-          fitAddon.fit();
-          resizeTerminal(sessionId, term.cols, term.rows);
+          if (!disposed) {
+            fitAddon.fit();
+            resizeTerminal(sessionId, term.cols, term.rows);
+          }
         }, 100);
       }
     };
     const handleExit = ({ sessionId: sid, code }) => {
-      if (sid === sessionId) term.write(`\r\n\x1b[33m[Process exited with code ${code}]\x1b[0m\r\n`);
+      if (!disposed && sid === sessionId) term.write(`\r\n\x1b[33m[Process exited with code ${code}]\x1b[0m\r\n`);
     };
     const handleError = ({ sessionId: sid, error }) => {
-      if (sid === sessionId) term.write(`\r\n\x1b[31m[Error: ${error}]\x1b[0m\r\n`);
+      if (!disposed && sid === sessionId) term.write(`\r\n\x1b[31m[Error: ${error}]\x1b[0m\r\n`);
     };
 
     socket.on('terminal:data', handleData);
@@ -102,12 +120,17 @@ export default function TerminalOverlay({
 
     attachTerminal(sessionId);
 
-    const handleResize = () => fitAddon.fit();
+    const handleResize = () => {
+      if (!disposed) fitAddon.fit();
+    };
     window.addEventListener('resize', handleResize);
 
-    setTimeout(() => term.focus(), 200);
+    setTimeout(() => {
+      if (!disposed) term.focus();
+    }, 200);
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(rafId);
       socket.off('terminal:data', handleData);
       socket.off('terminal:attached', handleAttached);
@@ -116,8 +139,10 @@ export default function TerminalOverlay({
       window.removeEventListener('resize', handleResize);
       detachTerminal(sessionId);
       term.dispose();
+      xtermRef.current = null;
+      fitAddonRef.current = null;
     };
-  }, [sessionId, socket]);
+  }, [sessionId, socket, sendInput, resizeTerminal, attachTerminal, detachTerminal]);
 
   // Swipe detection on header for switching sessions
   const touchStartX = useRef(0);

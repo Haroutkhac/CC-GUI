@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function NotificationToast({ notifications, onDismiss, onJump }) {
   return (
@@ -17,16 +17,24 @@ export default function NotificationToast({ notifications, onDismiss, onJump }) 
 
 function NotificationItem({ notification, onDismiss, onJump }) {
   const [visible, setVisible] = useState(false);
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
   useEffect(() => {
+    let dismissed = false;
+    let fadeTimer;
     const rafId = requestAnimationFrame(() => setVisible(true));
     const timer = setTimeout(() => {
       setVisible(false);
-      setTimeout(onDismiss, 300);
+      fadeTimer = setTimeout(() => {
+        if (!dismissed) onDismissRef.current();
+      }, 300);
     }, 5000);
     return () => {
+      dismissed = true;
       cancelAnimationFrame(rafId);
       clearTimeout(timer);
+      clearTimeout(fadeTimer);
     };
   }, []);
 

@@ -9,6 +9,12 @@ export default function GameCanvas({ projects, sessions, onNPCInteract, onTableI
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Clean up any prior engine (StrictMode double-mount protection)
+    if (engineRef.current) {
+      engineRef.current.destroy();
+      engineRef.current = null;
+    }
+
     const engine = new GameEngine(canvas);
     engineRef.current = engine;
 
@@ -31,6 +37,7 @@ export default function GameCanvas({ projects, sessions, onNPCInteract, onTableI
 
     return () => {
       engine.destroy();
+      engineRef.current = null;
       window.removeEventListener('resize', handleResize);
     };
   }, []);
