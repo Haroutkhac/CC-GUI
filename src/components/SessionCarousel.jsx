@@ -34,6 +34,7 @@ export default function SessionCarousel({
   summaries,
   onSelectSession,
   onCreateSession,
+  onDeleteSession,
   onShowOptions,
   onClose,
 }) {
@@ -125,6 +126,20 @@ export default function SessionCarousel({
               >
                 {STATUS_LABELS[status] || status.toUpperCase()}
               </div>
+
+              {/* Dismiss button */}
+              <button
+                style={styles.dismissBtn}
+                title={`Release ${session.starter || 'Pokemon'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (confirm(`Release ${session.starter || 'this Pokemon'}?`)) {
+                    onDeleteSession?.(session.id);
+                  }
+                }}
+              >
+                ✕
+              </button>
             </div>
           );
         })}
@@ -299,6 +314,24 @@ const styles = {
     padding: '3px 8px',
     borderRadius: '4px',
     letterSpacing: '0.5px',
+  },
+  dismissBtn: {
+    flexShrink: 0,
+    background: 'none',
+    border: '2px solid rgba(229, 57, 53, 0.4)',
+    color: '#E53935',
+    fontFamily: font,
+    fontSize: '9px',
+    width: '26px',
+    height: '26px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    borderRadius: '4px',
+    padding: 0,
+    opacity: 0.6,
+    transition: 'opacity 0.15s, background 0.15s',
   },
   footer: {
     padding: '12px 16px',

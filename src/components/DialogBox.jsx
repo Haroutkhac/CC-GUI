@@ -220,7 +220,7 @@ export function CreateSessionDialog({ projectId, projectName, onSubmit, onCancel
   );
 }
 
-export function TableContextMenu({ project, sessions, onCreateSession, onDeleteProject, onSelectSession, onClose }) {
+export function TableContextMenu({ project, sessions, onCreateSession, onDeleteProject, onDeleteSession, onSelectSession, onClose }) {
   const projectSessions = sessions.filter(s => s.projectId === project.id);
 
   return (
@@ -237,15 +237,26 @@ export function TableContextMenu({ project, sessions, onCreateSession, onDeleteP
           ) : (
             <div className="pkmn-session-list">
               {projectSessions.map(s => (
-                <button
-                  key={s.id}
-                  className={`pkmn-session-item status-${s.status}`}
-                  onClick={() => onSelectSession?.(s.id)}
-                >
-                  <span className="pkmn-session-starter">{s.starter}</span>
-                  <span className="pkmn-session-name">{s.name}</span>
-                  <span className={`pkmn-session-status ${s.status}`}>{s.status}</span>
-                </button>
+                <div key={s.id} className={`pkmn-session-item status-${s.status}`} style={{ display: 'flex', alignItems: 'center' }}>
+                  <button
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                    onClick={() => onSelectSession?.(s.id)}
+                  >
+                    <span className="pkmn-session-starter">{s.starter}</span>
+                    <span className="pkmn-session-name">{s.name}</span>
+                    <span className={`pkmn-session-status ${s.status}`}>{s.status}</span>
+                  </button>
+                  <button
+                    className="pkmn-dismiss-btn"
+                    title={`Release ${s.starter}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Release ${s.starter}?`)) onDeleteSession?.(s.id);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
             </div>
           )}
