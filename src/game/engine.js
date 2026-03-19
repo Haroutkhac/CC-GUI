@@ -57,6 +57,7 @@ export class GameEngine {
     this.nearbyTable = null;
     this.onInteract = null;
     this.onTableInteract = null;
+    this.onDismissNPC = null;
 
     // Animation
     this.lastTime = performance.now();
@@ -211,6 +212,14 @@ export class GameEngine {
           this.onInteract?.(this.nearbyNPC.sessionId);
         } else if (this.nearbyTable) {
           this.onTableInteract?.(this.nearbyTable.projectId);
+        }
+      }
+
+      // Dismiss key
+      if (e.key === 'x' || e.key === 'X') {
+        if (this.nearbyNPC) {
+          e.preventDefault();
+          this.onDismissNPC?.(this.nearbyNPC.sessionId, this.nearbyNPC.name);
         }
       }
     };
@@ -498,7 +507,7 @@ export class GameEngine {
 
     // Interaction prompt (Pokemon-style bottom bar)
     if (this.nearbyNPC) {
-      this.drawPromptBox(`Press ENTER to talk to ${this.nearbyNPC.name}`);
+      this.drawPromptBox(`ENTER talk  |  X release  ${this.nearbyNPC.name}`);
     } else if (this.nearbyTable && !this.nearbyNPC) {
       this.drawPromptBox(`Press ENTER for ${this.nearbyTable.name}`);
     }

@@ -12,7 +12,11 @@ export default function StatusDashboard({ projects, sessions, summaries, onSelec
   if (!open) return null;
 
   const totalSessions = sessions.length;
-  const waitingCount = sessions.filter(s => s.status === 'waiting').length;
+  const waitingSessions = sessions.filter(s => s.status === 'waiting');
+  const waitingCount = waitingSessions.length;
+  const waitingNames = waitingSessions.map(s =>
+    s.starter ? s.starter.charAt(0).toUpperCase() + s.starter.slice(1) : 'Unknown'
+  );
 
   // Group sessions by projectId
   const sessionsByProject = {};
@@ -41,7 +45,7 @@ export default function StatusDashboard({ projects, sessions, summaries, onSelec
             {waitingCount > 0 && (
               <>
                 <span className="dash-sep">&bull;</span>
-                <span className="dash-attention">{waitingCount} need attention!</span>
+                <span className="dash-attention">{waitingNames.join(', ')} need{waitingCount === 1 ? 's' : ''} attention!</span>
               </>
             )}
           </div>

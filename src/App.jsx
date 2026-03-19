@@ -39,6 +39,13 @@ export default function App() {
     openTerminal(sessionId);
   }, [openTerminal]);
 
+  // X key near NPC -> dismiss with confirm
+  const handleDismissNPC = useCallback((sessionId, name) => {
+    if (confirm(`Release ${name || 'this Pokemon'}?`)) {
+      deleteSession(sessionId);
+    }
+  }, [deleteSession]);
+
   // Table click -> open carousel
   const handleTableInteract = useCallback((projectId) => {
     const project = projects.find(p => p.id === projectId);
@@ -52,24 +59,35 @@ export default function App() {
   }, [openTerminal]);
 
   const handleCreateProject = useCallback(async (name, path) => {
-    await createProject(name, path);
-    setDialog(null);
-    setDialogData(null);
+    try {
+      await createProject(name, path);
+      setDialog(null);
+      setDialogData(null);
+    } catch (err) {
+      console.error('Failed to create project:', err);
+    }
   }, [createProject]);
 
   const handleCreateSession = useCallback(async (projectId, name, command) => {
-    const session = await createSession(projectId, name, command);
-    setDialog(null);
-    setDialogData(null);
-    // Auto-open the new session
-    if (session?.id) openTerminal(session.id);
+    try {
+      const session = await createSession(projectId, name, command);
+      setDialog(null);
+      setDialogData(null);
+      if (session?.id) openTerminal(session.id);
+    } catch (err) {
+      console.error('Failed to create session:', err);
+    }
   }, [createSession, openTerminal]);
 
   const handleDeleteProject = useCallback(async (projectId) => {
-    await deleteProject(projectId);
-    setDialog(null);
-    setDialogData(null);
-    setCarouselProject(null);
+    try {
+      await deleteProject(projectId);
+      setDialog(null);
+      setDialogData(null);
+      setCarouselProject(null);
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+    }
   }, [deleteProject]);
 
   // Quick create from carousel
@@ -157,6 +175,7 @@ export default function App() {
         sessions={sessions}
         onNPCInteract={handleNPCInteract}
         onTableInteract={handleTableInteract}
+        onDismissNPC={handleDismissNPC}
       />
 
       <HUD
@@ -213,6 +232,7 @@ export default function App() {
           summaries={summaries}
           onSelectSession={openTerminal}
           onCreateSession={() => handleQuickCreate(carouselProject.id)}
+          onDeleteSession={deleteSession}
           onShowOptions={() => {
             setDialog('tableMenu');
             setDialogData(carouselProject);
@@ -259,6 +279,7 @@ export default function App() {
           sessions={sessions}
           onCreateSession={() => setDialog('createSession')}
           onDeleteProject={handleDeleteProject}
+          onDeleteSession={deleteSession}
           onSelectSession={openTerminal}
           onClose={() => { setDialog(null); setDialogData(null); }}
         />
