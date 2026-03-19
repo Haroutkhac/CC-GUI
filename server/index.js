@@ -325,6 +325,9 @@ function detectStatus(sessionId, data) {
     newStatus = 'waiting';
   } else if (/(Thinking|Working|Running|Executing|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i.test(tail)) {
     newStatus = 'working';
+  } else if (session.status === 'waiting' || session.status === 'working') {
+    // Terminal output no longer matches waiting/working patterns — session has moved on
+    newStatus = 'active';
   }
 
   if (newStatus !== session.status) {
@@ -333,10 +336,13 @@ function detectStatus(sessionId, data) {
 
     // Only notify for waiting state (input needed)
     if (newStatus === 'waiting') {
+      const starterName = session.starter
+        ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+        : session.name;
       io.emit('notification', {
         sessionId,
         type: 'input_needed',
-        message: `${session.name} needs your input!`,
+        message: `${starterName} needs your input!`,
         projectId: session.projectId,
       });
     }

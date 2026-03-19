@@ -102,7 +102,11 @@ export default function OrchestratorPanel({ queue, sessions, projects, onSelectS
                 {/* Info */}
                 <div className="orch-item-info">
                   <div className="orch-item-top">
-                    <span className="orch-item-name">{item.session?.name}</span>
+                    <span className="orch-item-name">
+                      {item.session?.starter
+                        ? item.session.starter.charAt(0).toUpperCase() + item.session.starter.slice(1)
+                        : item.session?.name}
+                    </span>
                     <span className="orch-item-project">{item.project?.name}</span>
                     {item.detectedAt && item.priority >= 2 && (
                       <span className="orch-item-time">{timeAgo(item.detectedAt)}</span>

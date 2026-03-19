@@ -28,11 +28,15 @@ export function useSocket() {
 
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
+    socket.on('connect_error', (err) => {
+      console.warn('Socket connection error:', err.message);
+      setConnected(false);
+    });
 
-    socket.on('projects:updated', (data) => setProjects(data));
-    socket.on('sessions:updated', (data) => setSessions(data));
-    socket.on('sessions:summaries', (data) => setSummaries(data));
-    socket.on('orchestrator:update', (data) => setOrchestratorQueue(data));
+    socket.on('projects:updated', (data) => setProjects(data || []));
+    socket.on('sessions:updated', (data) => setSessions(data || []));
+    socket.on('sessions:summaries', (data) => setSummaries(data || {}));
+    socket.on('orchestrator:update', (data) => setOrchestratorQueue(data || []));
 
     socket.on('notification', (notif) => {
       setNotifications(prev => [...prev.slice(-10), { ...notif, id: Date.now(), time: new Date() }]);
@@ -57,21 +61,24 @@ export function useSocket() {
       }
 
       // Browser notification
-      if (Notification.permission === 'granted') {
-        new Notification('Claude Code Guild', {
-          body: notif.message,
-          icon: '/favicon.ico',
-        });
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        try {
+          new Notification('Claude Code Guild', {
+            body: notif.message,
+            icon: '/favicon.ico',
+          });
+        } catch (e) { /* notification not available */ }
       }
     });
 
-    if (Notification.permission === 'default') {
-      Notification.requestPermission();
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
     }
 
     return () => {
       socket.off('connect');
       socket.off('disconnect');
+      socket.off('connect_error');
       socket.off('projects:updated');
       socket.off('sessions:updated');
       socket.off('sessions:summaries');

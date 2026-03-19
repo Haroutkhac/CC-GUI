@@ -362,7 +362,7 @@ html, body, #root {
   padding: 8px; font-size: 7px; color: #383838;
   background: transparent; border: none;
   border-bottom: 1px solid #E8E0D0;
-  width: 100%; cursor: pointer; text-align: left;
+  width: 100%; text-align: left;
 }
 .pkmn-session-item:last-child { border-bottom: none; }
 .pkmn-session-item:hover { background: #E8E0D0; }
@@ -374,6 +374,14 @@ html, body, #root {
 .pkmn-session-status.working { color: #40A048; border-color: #40A048; }
 .pkmn-session-status.waiting { color: #C08800; border-color: #C08800; animation: blink 1s infinite; }
 .pkmn-session-status.exited { color: #C04040; border-color: #C04040; }
+.pkmn-dismiss-btn {
+  background: none; border: 1px solid #C04040; color: #C04040;
+  font-family: 'Press Start 2P', monospace; font-size: 8px;
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0; opacity: 0.5; transition: opacity 0.15s;
+  flex-shrink: 0; margin-left: 4px;
+}
+.pkmn-dismiss-btn:hover { opacity: 1; background: rgba(192, 64, 64, 0.15); }
 
 /* === TERMINAL OVERLAY === */
 .terminal-overlay {
