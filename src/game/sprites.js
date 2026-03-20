@@ -787,6 +787,11 @@ export function drawPokemonWithStatus(ctx, x, y, starterName, status, scale = 1)
     ctx.beginPath();
     ctx.ellipse(x + 8 * scale, y + 8 * scale, 12 * scale, 12 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
+  } else if (status === 'completed') {
+    ctx.fillStyle = 'rgba(46, 204, 113, 0.25)';
+    ctx.beginPath();
+    ctx.ellipse(x + 8 * scale, y + 8 * scale, 12 * scale, 12 * scale, 0, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // Shadow
@@ -802,6 +807,8 @@ export function drawPokemonWithStatus(ctx, x, y, starterName, status, scale = 1)
     drawStatusBubble(ctx, x + 4 * scale, y - 10 * scale, '!', '#F1C40F', scale);
   } else if (status === 'working') {
     drawStatusDots(ctx, x + 3 * scale, y - 8 * scale, scale);
+  } else if (status === 'completed') {
+    drawStatusBubble(ctx, x + 4 * scale, y - 10 * scale, '✓', '#2ECC71', scale);
   } else if (status === 'exited') {
     drawStatusBubble(ctx, x + 4 * scale, y - 10 * scale, 'X', '#E74C3C', scale);
   }
@@ -834,6 +841,17 @@ function drawStatusBubble(ctx, x, y, char, color, s) {
     const cy = by + 2 * s;
     ctx.fillRect(cx, cy, 2 * s, 4 * s);           // vertical bar
     ctx.fillRect(cx, cy + 5 * s, 2 * s, s);       // dot
+  } else if (char === '✓') {
+    ctx.fillStyle = color;
+    // Checkmark: short descending stroke then long ascending stroke
+    const cx = bx + 2 * s;
+    const cy = by + 2 * s;
+    ctx.fillRect(cx + 1 * s, cy + 4 * s, s, s);   // start of short stroke
+    ctx.fillRect(cx + 2 * s, cy + 5 * s, s, s);   // bottom of check
+    ctx.fillRect(cx + 3 * s, cy + 4 * s, s, s);   // ascending
+    ctx.fillRect(cx + 4 * s, cy + 3 * s, s, s);
+    ctx.fillRect(cx + 5 * s, cy + 2 * s, s, s);
+    ctx.fillRect(cx + 6 * s, cy + 1 * s, s, s);   // top of long stroke
   } else if (char === 'X') {
     ctx.fillStyle = color;
     const cx = bx + 3 * s;
@@ -1316,6 +1334,7 @@ export function drawPokemonName(ctx, x, y, name, starterName, status, scale = 1)
     active: '#3060A0',
     working: '#40A048',
     waiting: '#D8A020',
+    completed: '#2ECC71',
     exited: '#C04040',
   };
 

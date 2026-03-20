@@ -5,6 +5,7 @@ const STATUS_COLORS = {
   active: '#4A90D9',
   working: '#4CAF50',
   waiting: '#F5C542',
+  completed: '#2ECC71',
   exited: '#E53935',
 };
 
@@ -13,6 +14,7 @@ const STATUS_LABELS = {
   active: 'ACTIVE',
   working: 'WORKING',
   waiting: 'WAITING',
+  completed: 'DONE',
   exited: 'EXITED',
 };
 

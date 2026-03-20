@@ -38,8 +38,8 @@ function NotificationItem({ notification, onDismiss, onJump }) {
     };
   }, []);
 
-  const typeIcon = notification.type === 'input_needed' ? '!' : '*';
-  const typeClass = notification.type === 'input_needed' ? 'warning' : 'info';
+  const typeIcon = notification.type === 'input_needed' ? '!' : notification.type === 'completed' ? '✓' : '*';
+  const typeClass = notification.type === 'input_needed' ? 'warning' : notification.type === 'completed' ? 'success' : 'info';
 
   return (
     <div

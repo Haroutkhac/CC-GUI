@@ -157,16 +157,29 @@ export class Orchestrator {
 
   // Called when a session's status changes
   onStatusChange(sessionId, status, meta) {
-    if (status === 'exited') {
+    if (status === 'completed') {
+      this.states.set(sessionId, {
+        sessionId,
+        meta,
+        priority: PRIORITY.MEDIUM,
+        label: PRIORITY_LABELS[PRIORITY.MEDIUM],
+        reason: 'Session completed successfully',
+        action: 'Review or restart',
+        actionHint: 'review',
+        context: '',
+        detectedAt: Date.now(),
+      });
+      this.onChange?.();
+    } else if (status === 'exited') {
       const exitCode = meta.exitCode;
       this.states.set(sessionId, {
         sessionId,
         meta,
-        priority: exitCode === 0 ? PRIORITY.MEDIUM : PRIORITY.HIGH,
-        label: exitCode === 0 ? PRIORITY_LABELS[PRIORITY.MEDIUM] : PRIORITY_LABELS[PRIORITY.HIGH],
-        reason: exitCode === 0 ? 'Session ended cleanly' : `Exited with code ${exitCode}`,
-        action: exitCode === 0 ? 'Review or restart' : 'Investigate crash',
-        actionHint: exitCode === 0 ? 'review' : 'error',
+        priority: PRIORITY.HIGH,
+        label: PRIORITY_LABELS[PRIORITY.HIGH],
+        reason: `Exited with code ${exitCode}`,
+        action: 'Investigate crash',
+        actionHint: 'error',
         context: '',
         detectedAt: Date.now(),
       });

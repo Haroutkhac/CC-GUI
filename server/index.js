@@ -258,7 +258,7 @@ io.on('connection', (socket) => {
     let term = terminalManager.get(sessionId);
     if (!term) {
       // Don't re-spawn a process that already exited — show previous output instead
-      if (session.status === 'exited') {
+      if (session.status === 'exited' || session.status === 'completed') {
         socket.join(`session:${sessionId}`);
         const scrollback = terminalManager.getScrollback(sessionId);
         if (scrollback) {
@@ -297,14 +297,28 @@ io.on('connection', (socket) => {
             const sess = store.getSession(sessionId);
             // Session may have been deleted before exit fired — skip if gone
             if (!sess) return;
-            store.updateSession(sessionId, { status: 'exited', exitCode: code });
+            const exitStatus = code === 0 ? 'completed' : 'exited';
+            store.updateSession(sessionId, { status: exitStatus, exitCode: code });
             io.to(`session:${sessionId}`).emit('terminal:exit', { sessionId, code });
             io.emit('sessions:updated', store.getSessions());
-            orchestrator.onStatusChange(sessionId, 'exited', {
+            orchestrator.onStatusChange(sessionId, exitStatus, {
               exitCode: code,
               sessionName: sess.name,
               projectId: sess.projectId,
             });
+
+            // Notify on completion
+            if (exitStatus === 'completed') {
+              const starterName = sess.starter
+                ? sess.starter.charAt(0).toUpperCase() + sess.starter.slice(1)
+                : sess.name;
+              io.emit('notification', {
+                sessionId,
+                type: 'completed',
+                message: `${starterName} finished the task!`,
+                projectId: sess.projectId,
+              });
+            }
           },
         });
       } catch (err) {
