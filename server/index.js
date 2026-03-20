@@ -196,11 +196,7 @@ app.delete('/api/projects/:id', async (req, res) => {
       await worktreeManager.remove(project.path, session.worktreePath);
       await worktreeManager.removeBranch(project.path, session.branch);
     }
-    stateDetector.remove(session.id);
-    delete sessionSummaries[session.id];
-    waitingNotified.delete(session.id);
-    orchestrator.remove(session.id);
-    aiOrchestrator.remove(session.id);
+    cleanupSessionState(session.id);
     store.deleteSession(session.id);
   }
 
@@ -252,11 +248,7 @@ app.delete('/api/sessions/:id', async (req, res) => {
   }
 
   store.deleteSession(req.params.id);
-  stateDetector.remove(req.params.id);
-  delete sessionSummaries[req.params.id];
-  waitingNotified.delete(req.params.id);
-  orchestrator.remove(req.params.id);
-  aiOrchestrator.remove(req.params.id);
+  cleanupSessionState(req.params.id);
   io.emit('sessions:updated', store.getSessions());
   io.emit('projects:updated', store.getProjects());
   res.json({ ok: true });
@@ -485,9 +477,8 @@ io.on('connection', (socket) => {
             io.to(`session:${sessionId}`).emit('terminal:exit', { sessionId, code });
             io.emit('sessions:updated', store.getSessions());
 
-            // Clean up state detector for this session
-            stateDetector.remove(sessionId);
-            waitingNotified.delete(sessionId);
+            // Clean up per-session tracking state
+            cleanupSessionState(sessionId);
 
             const meta = {
               exitCode: code,
@@ -592,6 +583,15 @@ io.on('connection', (socket) => {
     console.log(`Client disconnected: ${socket.id}`);
   });
 });
+
+// Clean up all per-session tracking state (used on delete and exit)
+function cleanupSessionState(sessionId) {
+  stateDetector.remove(sessionId);
+  delete sessionSummaries[sessionId];
+  waitingNotified.delete(sessionId);
+  orchestrator.remove(sessionId);
+  aiOrchestrator.remove(sessionId);
+}
 
 // Session summaries — extract last meaningful output line per session
 // (Called from onData after stateDetector.ingest handles status detection)
