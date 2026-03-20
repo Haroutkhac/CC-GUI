@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GameEngine } from '../game/engine.js';
 
-export default function GameCanvas({ projects, sessions, onNPCInteract, onTableInteract, onDismissNPC, inputPaused }) {
+export default function GameCanvas({ projects, sessions, onNPCInteract, onTableInteract, onDeleteTable, onDismissNPC, inputPaused }) {
   const canvasRef = useRef(null);
   const engineRef = useRef(null);
 
@@ -24,6 +24,10 @@ export default function GameCanvas({ projects, sessions, onNPCInteract, onTableI
 
     engine.onTableInteract = (projectId) => {
       if (onTableInteract) onTableInteract(projectId);
+    };
+
+    engine.onDeleteTable = (projectId, name) => {
+      if (onDeleteTable) onDeleteTable(projectId, name);
     };
 
     engine.onDismissNPC = (sessionId, name) => {
@@ -51,11 +55,14 @@ export default function GameCanvas({ projects, sessions, onNPCInteract, onTableI
       engineRef.current.onTableInteract = (projectId) => {
         if (onTableInteract) onTableInteract(projectId);
       };
+      engineRef.current.onDeleteTable = (projectId, name) => {
+        if (onDeleteTable) onDeleteTable(projectId, name);
+      };
       engineRef.current.onDismissNPC = (sessionId, name) => {
         if (onDismissNPC) onDismissNPC(sessionId, name);
       };
     }
-  }, [onNPCInteract, onTableInteract, onDismissNPC]);
+  }, [onNPCInteract, onTableInteract, onDeleteTable, onDismissNPC]);
 
   // Update world when projects/sessions change
   useEffect(() => {
