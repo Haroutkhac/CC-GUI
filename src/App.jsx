@@ -17,9 +17,42 @@ export default function App() {
     dismissNotification,
   } = useSocket();
 
-  const [activeTerminal, setActiveTerminal] = useState(null);
-  const [activeProjectId, setActiveProjectId] = useState(null); // for swipe context
+  // Restore last-open terminal from localStorage so page refresh picks up where you left off
+  const [activeTerminal, setActiveTerminal] = useState(() => {
+    try { return localStorage.getItem('cc-gui:activeTerminal') || null; } catch { return null; }
+  });
+  const [activeProjectId, setActiveProjectId] = useState(() => {
+    try { return localStorage.getItem('cc-gui:activeProjectId') || null; } catch { return null; }
+  });
   const lastTerminalRef = useRef(null);
+
+  // Persist UI state to localStorage
+  useEffect(() => {
+    try {
+      if (activeTerminal) {
+        localStorage.setItem('cc-gui:activeTerminal', activeTerminal);
+      } else {
+        localStorage.removeItem('cc-gui:activeTerminal');
+      }
+    } catch {}
+  }, [activeTerminal]);
+
+  useEffect(() => {
+    try {
+      if (activeProjectId) {
+        localStorage.setItem('cc-gui:activeProjectId', activeProjectId);
+      } else {
+        localStorage.removeItem('cc-gui:activeProjectId');
+      }
+    } catch {}
+  }, [activeProjectId]);
+
+  // Clear restored terminal if the session no longer exists (deleted or stale)
+  useEffect(() => {
+    if (activeTerminal && sessions.length > 0 && !sessions.find(s => s.id === activeTerminal)) {
+      setActiveTerminal(null);
+    }
+  }, [activeTerminal, sessions]);
   const [dialog, setDialog] = useState(null);
   const [dialogData, setDialogData] = useState(null);
   const [dashboardOpen, setDashboardOpen] = useState(false);

@@ -17,6 +17,25 @@ const RUG = 6;
 const DOORMAT = 7;
 const SIGN = 8;
 
+// Seating positions around a table (relative offsets from table tile)
+const SEAT_OFFSETS = [
+  // Ring 1: cardinal
+  { dx: 0, dy: 1, labelSide: 'below' },
+  { dx: 1, dy: 0, labelSide: 'right' },
+  { dx: -1, dy: 0, labelSide: 'left' },
+  { dx: 0, dy: -1, labelSide: 'above' },
+  // Ring 1: diagonal
+  { dx: 1, dy: 1, labelSide: 'below' },
+  { dx: -1, dy: 1, labelSide: 'below' },
+  { dx: 1, dy: -1, labelSide: 'above' },
+  { dx: -1, dy: -1, labelSide: 'above' },
+  // Ring 2: cardinal
+  { dx: 0, dy: 2, labelSide: 'below' },
+  { dx: 2, dy: 0, labelSide: 'right' },
+  { dx: -2, dy: 0, labelSide: 'left' },
+  { dx: 0, dy: -2, labelSide: 'above' },
+];
+
 // Simple string hash for deterministic random placement
 function _hash(str) {
   let h = 0;
@@ -632,12 +651,17 @@ export class GameEngine {
 
   start() {
     this.running = true;
-    // Defer initial resize to next frame so the browser has computed layout
-    // (prevents 0x0 canvas on cold first visit before CSS/fonts are cached)
-    requestAnimationFrame(() => {
+    // Keep retrying resize until the canvas has real dimensions
+    // (on cold first visit, CSS/fonts may not be ready for several frames)
+    const tryStart = () => {
       this.resize();
-      requestAnimationFrame(this.loop);
-    });
+      if (this.canvas.width > 0 && this.canvas.height > 0) {
+        requestAnimationFrame(this.loop);
+      } else {
+        requestAnimationFrame(tryStart);
+      }
+    };
+    requestAnimationFrame(tryStart);
   }
 
   stop() { this.running = false; }
