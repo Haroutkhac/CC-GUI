@@ -12,7 +12,9 @@ import { Store } from './store.js';
 import { Orchestrator } from './orchestrator.js';
 import { AIOrchestrator } from './ai-orchestrator.js';
 import { WorktreeManager } from './worktree-manager.js';
-import { stripAnsi, STATUS_BUFFER_LIMIT } from './utils.js';
+import { GitMonitor } from './git-monitor.js';
+import { StateDetector } from './state-detector.js';
+import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv.includes('--production');
@@ -29,15 +31,51 @@ app.use(express.json());
 
 const store = new Store(path.join(__dirname, '..', 'data', 'store.json'));
 const terminalManager = new TerminalManager();
-const orchestrator = new Orchestrator();
-const aiOrchestrator = new AIOrchestrator({ terminalManager });
+const stateDetector = new StateDetector();
+const orchestrator = new Orchestrator({ stateDetector });
+const gitMonitor = new GitMonitor();
+const aiOrchestrator = new AIOrchestrator({ terminalManager, gitMonitor, store });
 const worktreeManager = new WorktreeManager();
-const statusBuffers = {};
 const sessionSummaries = {};
-const lastNotifiedAt = {};   // sessionId -> timestamp, for notification deduplication
-const idleTimers = {};       // sessionId -> setTimeout handle
-const NOTIFY_COOLDOWN_MS = 10000; // don't re-notify same session within 10s
-const IDLE_DELAY_MS = 3000;  // wait 3s of silence before evaluating status
+
+// Wire up StateDetector status change callback (needs aiOrchestrator + io)
+stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
+  const session = store.getSession(sessionId);
+  if (!session) return;
+
+  // Check auto-respond for Y/n prompts before setting waiting status
+  if (newStatus === 'waiting') {
+    const tail = stateDetector.getCleanTail(sessionId);
+    if (/\(Y\/n\)\s*$/i.test(tail)) {
+      const autoResponded = aiOrchestrator.checkAutoRespond(sessionId, tail);
+      if (autoResponded) return; // Don't set waiting — we already responded
+    }
+  }
+
+  store.updateSession(sessionId, { status: newStatus });
+  io.emit('sessions:updated', store.getSessions());
+
+  // Notify AI orchestrator of status changes
+  const proj = store.getProject(session.projectId);
+  aiOrchestrator.onStatusChange(sessionId, newStatus, {
+    sessionName: session.name,
+    projectName: proj?.name,
+    projectId: session.projectId,
+  });
+
+  // Notify for waiting state (input needed)
+  if (newStatus === 'waiting') {
+    const starterName = session.starter
+      ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+      : session.name;
+    io.emit('notification', {
+      sessionId,
+      type: 'input_needed',
+      message: `${starterName} needs your input!`,
+      projectId: session.projectId,
+    });
+  }
+};
 
 // On server startup, reset sessions that claim to be running but have no pty
 // (happens after server crash/restart — ptys are in-memory only)
@@ -55,6 +93,46 @@ orchestrator.onChange = () => {
 // Broadcast AI summaries whenever they update
 aiOrchestrator.onChange = () => {
   io.emit('ai:summaries', aiOrchestrator.getSummaries());
+};
+
+// Broadcast diffs/branch status whenever they update
+aiOrchestrator.onDiffsChange = () => {
+  io.emit('ai:diffs', aiOrchestrator.getDiffs());
+  io.emit('ai:branches', aiOrchestrator.getBranchStatus());
+};
+
+// Broadcast conflicts whenever they change
+aiOrchestrator.onConflictsChange = () => {
+  const conflicts = aiOrchestrator.getConflicts();
+  io.emit('ai:conflicts', conflicts);
+
+  // Emit notifications for new merge conflicts
+  for (const [projectId, data] of Object.entries(conflicts)) {
+    for (const mc of (data.mergeConflicts || [])) {
+      const sA = store.getSession(mc.sessionA);
+      const sB = store.getSession(mc.sessionB);
+      if (!sA || !sB) continue;
+      const nameA = sA.starter ? sA.starter.charAt(0).toUpperCase() + sA.starter.slice(1) : sA.name;
+      const nameB = sB.starter ? sB.starter.charAt(0).toUpperCase() + sB.starter.slice(1) : sB.name;
+      const files = mc.conflicts.map(c => c.file).join(', ');
+      io.emit('notification', {
+        type: 'conflict',
+        message: `Merge conflict: ${nameA} vs ${nameB} in ${files}`,
+        projectId,
+        sessionId: mc.sessionA,
+      });
+    }
+  }
+};
+
+// Broadcast PR status updates
+aiOrchestrator.onPRStatus = (status) => {
+  io.emit('ai:pr-status', status);
+};
+
+// Broadcast coordination messages
+aiOrchestrator.onCoordination = (entry) => {
+  io.emit('ai:coordination', entry);
 };
 
 // Broadcast auto-responses as they happen
@@ -110,11 +188,8 @@ app.delete('/api/projects/:id', async (req, res) => {
       await worktreeManager.remove(project.path, session.worktreePath);
       await worktreeManager.removeBranch(project.path, session.branch);
     }
-    clearTimeout(idleTimers[session.id]);
-    delete idleTimers[session.id];
-    delete statusBuffers[session.id];
+    stateDetector.remove(session.id);
     delete sessionSummaries[session.id];
-    delete lastNotifiedAt[session.id];
     orchestrator.remove(session.id);
     aiOrchestrator.remove(session.id);
     store.deleteSession(session.id);
@@ -168,11 +243,8 @@ app.delete('/api/sessions/:id', async (req, res) => {
   }
 
   store.deleteSession(req.params.id);
-  clearTimeout(idleTimers[req.params.id]);
-  delete idleTimers[req.params.id];
-  delete statusBuffers[req.params.id];
+  stateDetector.remove(req.params.id);
   delete sessionSummaries[req.params.id];
-  delete lastNotifiedAt[req.params.id];
   orchestrator.remove(req.params.id);
   aiOrchestrator.remove(req.params.id);
   io.emit('sessions:updated', store.getSessions());
@@ -185,6 +257,55 @@ app.patch('/api/sessions/:id', (req, res) => {
   if (!session) return res.status(404).json({ error: 'not found' });
   io.emit('sessions:updated', store.getSessions());
   res.json(session);
+});
+
+// --- Git & Orchestrator API ---
+
+app.get('/api/sessions/:id/diff', async (req, res) => {
+  const detail = aiOrchestrator.getDiffDetail(req.params.id);
+  if (!detail) return res.json({ files: [], rawDiff: '', summary: 'No data yet' });
+  res.json(detail);
+});
+
+app.get('/api/sessions/:id/branch', (req, res) => {
+  const status = aiOrchestrator.getBranchStatus();
+  res.json(status[req.params.id] || { commitCount: 0, commits: [], base: 'main' });
+});
+
+app.get('/api/projects/:id/conflicts', (req, res) => {
+  const conflicts = aiOrchestrator.getConflicts();
+  res.json(conflicts[req.params.id] || { overlaps: [], mergeConflicts: [] });
+});
+
+app.post('/api/sessions/:id/create-pr', async (req, res) => {
+  const result = await aiOrchestrator.createPR(req.params.id);
+  if (result.success) {
+    io.emit('sessions:updated', store.getSessions());
+  }
+  res.json(result);
+});
+
+app.post('/api/projects/:id/create-prs', async (req, res) => {
+  const result = await aiOrchestrator.createAllPRs(req.params.id);
+  if (result.success) {
+    io.emit('sessions:updated', store.getSessions());
+  }
+  res.json(result);
+});
+
+app.post('/api/sessions/:id/coordinate', (req, res) => {
+  const { message } = req.body;
+  if (!message) return res.status(400).json({ error: 'message required' });
+  const sent = aiOrchestrator.sendCoordinationMessage(req.params.id, message);
+  res.json({ sent });
+});
+
+app.get('/api/orchestrator/status', (req, res) => {
+  res.json({
+    ...aiOrchestrator.getStatus(),
+    conflicts: aiOrchestrator.getConflicts(),
+    prStatus: aiOrchestrator.getPRStatus(),
+  });
 });
 
 // --- Discovery API ---
@@ -278,6 +399,10 @@ io.on('connection', (socket) => {
   socket.emit('orchestrator:update', orchestrator.getRanked());
   socket.emit('ai:summaries', aiOrchestrator.getSummaries());
   socket.emit('ai:status', aiOrchestrator.getStatus());
+  socket.emit('ai:diffs', aiOrchestrator.getDiffs());
+  socket.emit('ai:branches', aiOrchestrator.getBranchStatus());
+  socket.emit('ai:conflicts', aiOrchestrator.getConflicts());
+  socket.emit('ai:pr-statuses', aiOrchestrator.getPRStatus());
 
   socket.on('terminal:attach', (sessionId) => {
     const session = store.getSession(sessionId);
@@ -315,13 +440,22 @@ io.on('connection', (socket) => {
       const command = parts[0];
       const commandArgs = parts.slice(1);
 
+      // Add --session-id for Claude CLI so transcript path is deterministic
+      let claudeSessionId = null;
+      if (command === 'claude') {
+        claudeSessionId = crypto.randomUUID();
+        commandArgs.push('--session-id', claudeSessionId);
+        store.updateSession(sessionId, { claudeSessionId });
+      }
+
       try {
         const cwd = session.worktreePath || project.path;
         term = terminalManager.create(sessionId, command, commandArgs, {
           cwd,
           onData: (data) => {
             io.to(`session:${sessionId}`).emit('terminal:data', { sessionId, data });
-            detectStatus(sessionId, data);
+            stateDetector.ingest(sessionId, data);
+            extractSummary(sessionId);
             const sess = store.getSession(sessionId);
             const proj = sess ? store.getProject(sess.projectId) : null;
             const meta = {
@@ -340,6 +474,9 @@ io.on('connection', (socket) => {
             store.updateSession(sessionId, { status: exitStatus, exitCode: code });
             io.to(`session:${sessionId}`).emit('terminal:exit', { sessionId, code });
             io.emit('sessions:updated', store.getSessions());
+
+            // Clean up state detector for this session
+            stateDetector.remove(sessionId);
 
             const meta = {
               exitCode: code,
@@ -364,6 +501,11 @@ io.on('connection', (socket) => {
             }
           },
         });
+
+        // Start transcript watcher for Claude sessions
+        if (claudeSessionId) {
+          stateDetector.watchTranscript(sessionId, cwd, claudeSessionId);
+        }
       } catch (err) {
         console.error(`Failed to spawn terminal for session ${sessionId}:`, err.message);
         socket.emit('terminal:error', { sessionId, error: `Failed to start terminal: ${err.message}` });
@@ -413,108 +555,44 @@ io.on('connection', (socket) => {
     aiOrchestrator.refreshAll();
   });
 
+  socket.on('ai:toggle-coordination', () => {
+    aiOrchestrator.coordinationEnabled = !aiOrchestrator.coordinationEnabled;
+    io.emit('ai:status', aiOrchestrator.getStatus());
+    console.log(`[AI Orchestrator] Coordination ${aiOrchestrator.coordinationEnabled ? 'enabled' : 'disabled'}`);
+  });
+
+  socket.on('ai:create-pr', async ({ sessionId }) => {
+    if (!sessionId) return;
+    const result = await aiOrchestrator.createPR(sessionId);
+    if (result.success) {
+      io.emit('sessions:updated', store.getSessions());
+    }
+  });
+
+  socket.on('ai:create-all-prs', async ({ projectId }) => {
+    if (!projectId) return;
+    const result = await aiOrchestrator.createAllPRs(projectId);
+    if (result.success) {
+      io.emit('sessions:updated', store.getSessions());
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
   });
 });
 
-// Session summaries (last meaningful output line per session)
+// Session summaries — extract last meaningful output line per session
+// (Called from onData after stateDetector.ingest handles status detection)
+function extractSummary(sessionId) {
+  const clean = stateDetector.getCleanBuffer(sessionId);
+  if (!clean) return;
 
-// Status detection — idle-based approach
-// Buffer data immediately, but only evaluate status after output goes quiet for IDLE_DELAY_MS.
-// This prevents rapid status flipping from mid-stream pattern matches.
-function detectStatus(sessionId, data) {
-  if (!statusBuffers[sessionId]) statusBuffers[sessionId] = '';
-  statusBuffers[sessionId] += data;
-
-  if (statusBuffers[sessionId].length > STATUS_BUFFER_LIMIT) {
-    statusBuffers[sessionId] = statusBuffers[sessionId].slice(-STATUS_BUFFER_LIMIT);
-  }
-
-  // While output is streaming, mark as working immediately (no delay needed for this direction)
-  const session = store.getSession(sessionId);
-  if (!session) {
-    delete statusBuffers[sessionId];
-    return;
-  }
-  if (session.status !== 'working' && session.status !== 'exited') {
-    store.updateSession(sessionId, { status: 'working' });
-    io.emit('sessions:updated', store.getSessions());
-  }
-
-  // Update summaries eagerly (these are informational, no notification attached)
-  const cleanForSummary = stripAnsi(statusBuffers[sessionId]);
-  const summaryLines = cleanForSummary.split('\n').filter(l => l.trim().length > 0);
-  const summaryLine = summaryLines.length > 0 ? summaryLines[summaryLines.length - 1].slice(0, 120) : '';
-  if (summaryLine && sessionSummaries[sessionId] !== summaryLine) {
-    sessionSummaries[sessionId] = summaryLine;
+  const lines = clean.split('\n').filter(l => l.trim().length > 0);
+  const lastLine = lines.length > 0 ? lines[lines.length - 1].slice(0, 120) : '';
+  if (lastLine && sessionSummaries[sessionId] !== lastLine) {
+    sessionSummaries[sessionId] = lastLine;
     io.emit('sessions:summaries', sessionSummaries);
-  }
-
-  // Reset the idle timer — evaluate status only after output stops
-  clearTimeout(idleTimers[sessionId]);
-  idleTimers[sessionId] = setTimeout(() => evaluateStatus(sessionId), IDLE_DELAY_MS);
-}
-
-// Called after IDLE_DELAY_MS of silence — output has settled, now classify the state
-function evaluateStatus(sessionId) {
-  const buf = statusBuffers[sessionId];
-  if (!buf) return;
-
-  const clean = stripAnsi(buf);
-  const session = store.getSession(sessionId);
-  if (!session || session.status === 'exited') return;
-
-  const tail = clean.slice(-200);
-  const tailLines = tail.split('\n').filter(l => l.trim());
-  const lastLine = (tailLines[tailLines.length - 1] || '').trim();
-
-  let newStatus = 'active';
-
-  // Y/n confirmation prompts — check auto-respond before setting waiting
-  if (/\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail)) {
-    if (/\(Y\/n\)\s*$/i.test(tail)) {
-      const autoResponded = aiOrchestrator.checkAutoRespond(sessionId, tail);
-      if (autoResponded) return;
-    }
-    newStatus = 'waiting';
-  // Bare prompt character as only content on last line
-  } else if (/^\s*>\s*$/.test(lastLine) || /^\s*❯\s*$/.test(lastLine)) {
-    newStatus = 'waiting';
-  // Permission / approval prompts
-  } else if (/Do you want to proceed|Allow .* to |Approve.*Deny|Would you like to/i.test(tailLines.slice(-2).join('\n'))) {
-    newStatus = 'waiting';
-  }
-
-  if (newStatus !== session.status) {
-    store.updateSession(sessionId, { status: newStatus });
-    io.emit('sessions:updated', store.getSessions());
-
-    // Notify AI orchestrator of status changes for summarization
-    const proj = store.getProject(session.projectId);
-    aiOrchestrator.onStatusChange(sessionId, newStatus, {
-      sessionName: session.name,
-      projectName: proj?.name,
-      projectId: session.projectId,
-    });
-
-    // Notify for waiting state, with cooldown to prevent duplicates
-    if (newStatus === 'waiting') {
-      const now = Date.now();
-      const lastNotif = lastNotifiedAt[sessionId] || 0;
-      if (now - lastNotif >= NOTIFY_COOLDOWN_MS) {
-        lastNotifiedAt[sessionId] = now;
-        const starterName = session.starter
-          ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
-          : session.name;
-        io.emit('notification', {
-          sessionId,
-          type: 'input_needed',
-          message: `${starterName} needs your input!`,
-          projectId: session.projectId,
-        });
-      }
-    }
   }
 }
 
@@ -541,18 +619,11 @@ if (isProduction) {
 function shutdown(signal) {
   console.log(`\n  ${signal} received. Cleaning up terminals...`);
   terminalManager.killAll();
-  // Cancel any pending AI orchestrator work
+  stateDetector.shutdown();
+  aiOrchestrator.stopGitMonitor();
   if (aiOrchestrator._timer) {
     clearTimeout(aiOrchestrator._timer);
     aiOrchestrator._timer = null;
-  }
-  // Clean up timers and buffers
-  for (const key of Object.keys(idleTimers)) {
-    clearTimeout(idleTimers[key]);
-    delete idleTimers[key];
-  }
-  for (const key of Object.keys(statusBuffers)) {
-    delete statusBuffers[key];
   }
   server.close(() => {
     console.log('  Server closed.');
@@ -567,7 +638,9 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3456;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n  Claude Code Guild server running on http://localhost:${PORT}`);
+  console.log(`\n  CC Gym server running on http://localhost:${PORT}`);
   console.log(`  Network access: http://${getNetworkIP()}:${PORT}`);
-  console.log(`  AI Orchestrator: auto-respond ${aiOrchestrator.autoRespondEnabled ? 'ON' : 'OFF'}\n`);
+  console.log(`  AI Orchestrator: auto-respond ${aiOrchestrator.autoRespondEnabled ? 'ON' : 'OFF'}`);
+  console.log(`  Git Monitor: active (polling every 15s)\n`);
+  aiOrchestrator.startGitMonitor();
 });

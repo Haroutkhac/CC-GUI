@@ -12,6 +12,18 @@ export function stripAnsi(str) {
     .trim();
 }
 
+// Extract OSC (Operating System Command) sequences before ANSI stripping
+// These are \x1b]0;...\x07 sequences that set the terminal title
+export function extractOSC(str) {
+  const matches = [];
+  const re = /\x1b\]0;([^\x07]*)\x07/g;
+  let match;
+  while ((match = re.exec(str)) !== null) {
+    matches.push(match[1]);
+  }
+  return matches;
+}
+
 // Buffer size constants
 export const SCROLLBACK_LIMIT = 100000;    // 100KB per terminal session
 export const STATUS_BUFFER_LIMIT = 4000;   // For status detection in server

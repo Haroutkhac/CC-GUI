@@ -27,7 +27,8 @@ const PRIORITY_ACTIONS = {
 };
 
 export class Orchestrator {
-  constructor() {
+  constructor(options = {}) {
+    this.stateDetector = options.stateDetector || null;
     this.states = new Map();    // sessionId -> analysis state
     this.buffers = new Map();   // sessionId -> raw output buffer
     this.onChange = null;        // callback when priorities change
@@ -44,7 +45,7 @@ export class Orchestrator {
     const tail = clean.slice(-600);
 
     const prev = this.states.get(sessionId);
-    const analysis = this._analyze(tail, meta);
+    const analysis = this._analyze(sessionId, tail, meta);
     analysis.sessionId = sessionId;
     analysis.meta = meta;
 
@@ -65,7 +66,7 @@ export class Orchestrator {
   }
 
   // Analyze the cleaned terminal output and determine priority/action
-  _analyze(tail, meta) {
+  _analyze(sessionId, tail, meta) {
     const lastLines = tail.split('\n').filter(l => l.trim()).slice(-8);
     const lastLine = (lastLines[lastLines.length - 1] || '').trim();
     const lastTwoLines = lastLines.slice(-2).join('\n');
@@ -139,17 +140,37 @@ export class Orchestrator {
       };
     }
 
-    // --- LOW: Actively working ---
-    if (WORK_PATTERN.test(tail.slice(-300))) {
-      const workMatch = tail.slice(-300).match(new RegExp(WORK_PATTERN.source + '[^\\n]*', 'i'));
-      return {
-        priority: PRIORITY.LOW,
-        label: PRIORITY_LABELS[PRIORITY.LOW],
-        reason: workMatch ? workMatch[0].slice(0, 80) : 'Working',
-        action: 'No action needed',
-        actionHint: 'working',
-        context,
-      };
+    // --- LOW: Actively working — use StateDetector for reliable detection ---
+    if (this.stateDetector) {
+      const granularState = this.stateDetector.getGranularState(sessionId);
+      if (granularState === 'thinking' || granularState === 'tool_running' || granularState === 'working') {
+        const reasonMap = {
+          thinking: 'Thinking',
+          tool_running: 'Running tool',
+          working: 'Working',
+        };
+        return {
+          priority: PRIORITY.LOW,
+          label: PRIORITY_LABELS[PRIORITY.LOW],
+          reason: reasonMap[granularState] || 'Working',
+          action: 'No action needed',
+          actionHint: 'working',
+          context,
+        };
+      }
+    } else {
+      // Fallback: keyword matching (when no StateDetector is available)
+      if (/(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i.test(tail.slice(-300))) {
+        const workMatch = tail.slice(-300).match(/(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)[^\n]*/i);
+        return {
+          priority: PRIORITY.LOW,
+          label: PRIORITY_LABELS[PRIORITY.LOW],
+          reason: workMatch ? workMatch[0].slice(0, 80) : 'Working',
+          action: 'No action needed',
+          actionHint: 'working',
+          context,
+        };
+      }
     }
 
     // --- NONE: Idle ---
