@@ -12,9 +12,10 @@ import { useSocket } from './hooks/useSocket.js';
 export default function App() {
   const {
     socket, connected, projects, sessions, summaries, notifications, orchestratorQueue,
+    aiSummaries, aiDiffs, aiBranches, aiConflicts, prStatuses,
     createProject, deleteProject, createSession, quickCreateSession, deleteSession,
     attachTerminal, detachTerminal, sendTerminalInput, resizeTerminal,
-    dismissNotification,
+    dismissNotification, createPR, createAllPRs,
   } = useSocket();
 
   const [activeTerminal, setActiveTerminal] = useState(null);
@@ -277,6 +278,13 @@ export default function App() {
           queue={orchestratorQueue}
           sessions={sessions}
           projects={projects}
+          aiSummaries={aiSummaries}
+          aiConflicts={aiConflicts}
+          aiDiffs={aiDiffs}
+          aiBranches={aiBranches}
+          prStatuses={prStatuses}
+          onCreatePR={createPR}
+          onCreateAllPRs={createAllPRs}
           onSelectSession={(sessionId) => {
             setOrchestratorOpen(false);
             openTerminal(sessionId);
@@ -291,6 +299,12 @@ export default function App() {
           projects={projects}
           sessions={sessions}
           summaries={summaries}
+          aiSummaries={aiSummaries}
+          aiDiffs={aiDiffs}
+          aiBranches={aiBranches}
+          aiConflicts={aiConflicts}
+          prStatuses={prStatuses}
+          onCreatePR={createPR}
           open={dashboardOpen}
           onSelectSession={openTerminal}
           onClose={() => setDashboardOpen(false)}
