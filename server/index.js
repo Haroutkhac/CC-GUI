@@ -10,6 +10,7 @@ import fs from 'fs';
 import { TerminalManager } from './terminal-manager.js';
 import { Store } from './store.js';
 import { Orchestrator } from './orchestrator.js';
+import { AIOrchestrator } from './ai-orchestrator.js';
 import { WorktreeManager } from './worktree-manager.js';
 import { stripAnsi, STATUS_BUFFER_LIMIT } from './utils.js';
 
@@ -29,6 +30,7 @@ app.use(express.json());
 const store = new Store(path.join(__dirname, '..', 'data', 'store.json'));
 const terminalManager = new TerminalManager();
 const orchestrator = new Orchestrator();
+const aiOrchestrator = new AIOrchestrator({ terminalManager });
 const worktreeManager = new WorktreeManager();
 const statusBuffers = {};
 const sessionSummaries = {};
@@ -44,6 +46,27 @@ for (const session of store.getSessions()) {
 // Broadcast orchestrator state whenever priorities change
 orchestrator.onChange = () => {
   io.emit('orchestrator:update', orchestrator.getRanked());
+};
+
+// Broadcast AI summaries whenever they update
+aiOrchestrator.onChange = () => {
+  io.emit('ai:summaries', aiOrchestrator.getSummaries());
+};
+
+// Broadcast auto-responses as they happen
+aiOrchestrator.onAutoRespond = (entry) => {
+  const session = store.getSession(entry.sessionId);
+  const starterName = session?.starter
+    ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+    : session?.name || 'Agent';
+  io.emit('ai:auto-response', entry);
+  io.emit('notification', {
+    sessionId: entry.sessionId,
+    type: 'auto_responded',
+    message: `Auto-approved for ${starterName}: ${entry.prompt.slice(-80)}`,
+    projectId: session?.projectId,
+  });
+  console.log(`[Auto-respond] ${starterName}: Y → ${entry.prompt.slice(-80)}`);
 };
 
 // Serve static files in production
@@ -86,6 +109,7 @@ app.delete('/api/projects/:id', async (req, res) => {
     delete statusBuffers[session.id];
     delete sessionSummaries[session.id];
     orchestrator.remove(session.id);
+    aiOrchestrator.remove(session.id);
     store.deleteSession(session.id);
   }
 
@@ -140,6 +164,7 @@ app.delete('/api/sessions/:id', async (req, res) => {
   delete statusBuffers[req.params.id];
   delete sessionSummaries[req.params.id];
   orchestrator.remove(req.params.id);
+  aiOrchestrator.remove(req.params.id);
   io.emit('sessions:updated', store.getSessions());
   io.emit('projects:updated', store.getProjects());
   res.json({ ok: true });
@@ -241,6 +266,8 @@ io.on('connection', (socket) => {
   socket.emit('sessions:updated', store.getSessions());
   socket.emit('sessions:summaries', sessionSummaries);
   socket.emit('orchestrator:update', orchestrator.getRanked());
+  socket.emit('ai:summaries', aiOrchestrator.getSummaries());
+  socket.emit('ai:status', aiOrchestrator.getStatus());
 
   socket.on('terminal:attach', (sessionId) => {
     const session = store.getSession(sessionId);
@@ -287,11 +314,13 @@ io.on('connection', (socket) => {
             detectStatus(sessionId, data);
             const sess = store.getSession(sessionId);
             const proj = sess ? store.getProject(sess.projectId) : null;
-            orchestrator.ingest(sessionId, data, {
+            const meta = {
               sessionName: sess?.name,
               projectName: proj?.name,
               projectId: sess?.projectId,
-            });
+            };
+            orchestrator.ingest(sessionId, data, meta);
+            aiOrchestrator.ingest(sessionId, data, meta);
           },
           onExit: (code) => {
             const sess = store.getSession(sessionId);
@@ -301,11 +330,15 @@ io.on('connection', (socket) => {
             store.updateSession(sessionId, { status: exitStatus, exitCode: code });
             io.to(`session:${sessionId}`).emit('terminal:exit', { sessionId, code });
             io.emit('sessions:updated', store.getSessions());
-            orchestrator.onStatusChange(sessionId, exitStatus, {
+
+            const meta = {
               exitCode: code,
               sessionName: sess.name,
+              projectName: store.getProject(sess.projectId)?.name,
               projectId: sess.projectId,
-            });
+            };
+            orchestrator.onStatusChange(sessionId, exitStatus, meta);
+            aiOrchestrator.onStatusChange(sessionId, exitStatus, meta);
 
             // Notify on completion
             if (exitStatus === 'completed') {
@@ -359,6 +392,17 @@ io.on('connection', (socket) => {
     terminalManager.resize(sessionId, cols, rows);
   });
 
+  // AI Orchestrator controls
+  socket.on('ai:toggle-auto-respond', () => {
+    aiOrchestrator.autoRespondEnabled = !aiOrchestrator.autoRespondEnabled;
+    io.emit('ai:status', aiOrchestrator.getStatus());
+    console.log(`[AI Orchestrator] Auto-respond ${aiOrchestrator.autoRespondEnabled ? 'enabled' : 'disabled'}`);
+  });
+
+  socket.on('ai:refresh', () => {
+    aiOrchestrator.refreshAll();
+  });
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
   });
@@ -390,6 +434,14 @@ function detectStatus(sessionId, data) {
 
   // Claude Code waiting for input: ">" or "❯" prompt at end, or "?" for confirmations
   if (/(?:^|\n)\s*>\s*$/.test(tail) || /❯\s*$/.test(tail) || /\?\s*$/.test(tail) || /\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail)) {
+    // Check auto-respond for Y/n prompts BEFORE setting waiting status
+    if (/\(Y\/n\)\s*$/i.test(tail)) {
+      const autoResponded = aiOrchestrator.checkAutoRespond(sessionId, tail);
+      if (autoResponded) {
+        // Don't set waiting — we already responded
+        return;
+      }
+    }
     newStatus = 'waiting';
   } else if (/(Thinking|Working|Running|Executing|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i.test(tail)) {
     newStatus = 'working';
@@ -401,6 +453,14 @@ function detectStatus(sessionId, data) {
   if (newStatus !== session.status) {
     store.updateSession(sessionId, { status: newStatus });
     io.emit('sessions:updated', store.getSessions());
+
+    // Notify AI orchestrator of status changes for summarization
+    const proj = store.getProject(session.projectId);
+    aiOrchestrator.onStatusChange(sessionId, newStatus, {
+      sessionName: session.name,
+      projectName: proj?.name,
+      projectId: session.projectId,
+    });
 
     // Only notify for waiting state (input needed)
     if (newStatus === 'waiting') {
@@ -466,5 +526,6 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 const PORT = process.env.PORT || 3456;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  Claude Code Guild server running on http://localhost:${PORT}`);
-  console.log(`  Network access: http://${getNetworkIP()}:${PORT}\n`);
+  console.log(`  Network access: http://${getNetworkIP()}:${PORT}`);
+  console.log(`  AI Orchestrator: auto-respond ${aiOrchestrator.autoRespondEnabled ? 'ON' : 'OFF'}\n`);
 });

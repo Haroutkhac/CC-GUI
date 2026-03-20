@@ -11,6 +11,9 @@ export function useSocket() {
   const [summaries, setSummaries] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [orchestratorQueue, setOrchestratorQueue] = useState([]);
+  const [aiSummaries, setAiSummaries] = useState({});
+  const [aiStatus, setAiStatus] = useState({ autoRespondEnabled: true });
+  const [autoResponses, setAutoResponses] = useState([]);
 
   // Force reload when restored from bfcache (back/forward navigation)
   useEffect(() => {
@@ -39,6 +42,13 @@ export function useSocket() {
     socket.on('sessions:updated', (data) => setSessions(data || []));
     socket.on('sessions:summaries', (data) => setSummaries(data || {}));
     socket.on('orchestrator:update', (data) => setOrchestratorQueue(data || []));
+
+    // AI Orchestrator events
+    socket.on('ai:summaries', (data) => setAiSummaries(data || {}));
+    socket.on('ai:status', (data) => setAiStatus(data || {}));
+    socket.on('ai:auto-response', (entry) => {
+      setAutoResponses(prev => [...prev.slice(-50), entry]);
+    });
 
     socket.on('notification', (notif) => {
       setNotifications(prev => [...prev.slice(-10), { ...notif, id: `notif-${Date.now()}-${++_notifIdCounter}`, time: new Date() }]);
@@ -85,6 +95,9 @@ export function useSocket() {
       socket.off('sessions:updated');
       socket.off('sessions:summaries');
       socket.off('orchestrator:update');
+      socket.off('ai:summaries');
+      socket.off('ai:status');
+      socket.off('ai:auto-response');
       socket.off('notification');
       socket.close();
     };
@@ -151,6 +164,15 @@ export function useSocket() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
+  // AI Orchestrator controls
+  const toggleAutoRespond = useCallback(() => {
+    socketRef.current?.emit('ai:toggle-auto-respond');
+  }, []);
+
+  const refreshAISummaries = useCallback(() => {
+    socketRef.current?.emit('ai:refresh');
+  }, []);
+
   return {
     socket: socketRef.current,
     connected,
@@ -159,6 +181,9 @@ export function useSocket() {
     summaries,
     notifications,
     orchestratorQueue,
+    aiSummaries,
+    aiStatus,
+    autoResponses,
     createProject,
     deleteProject,
     createSession,
@@ -169,5 +194,7 @@ export function useSocket() {
     sendTerminalInput,
     resizeTerminal,
     dismissNotification,
+    toggleAutoRespond,
+    refreshAISummaries,
   };
 }
