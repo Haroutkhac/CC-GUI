@@ -261,7 +261,7 @@ export default function App() {
         onClick={() => setDashboardOpen(true)}
       >
         {waitingCount > 0 && <span className="fab-badge">{waitingCount}</span>}
-        TEAM
+        TEAM <span className="fab-key-hint">[T]</span>
       </button>
 
       {/* Orchestrator Panel */}

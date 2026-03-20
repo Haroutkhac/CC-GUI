@@ -95,6 +95,11 @@ html, body, #root {
   box-shadow: 4px 4px 0 rgba(0,0,0,0.4);
   transition: transform 0.05s;
 }
+.fab-key-hint {
+  font-size: 7px;
+  color: #808080;
+  margin-left: 4px;
+}
 .fab-team:hover { background: #E8E0D0; }
 .fab-team:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 rgba(0,0,0,0.3); }
 
