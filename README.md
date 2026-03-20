@@ -112,9 +112,20 @@ Click any item to jump straight into that terminal.
 
 Shortcuts are disabled when typing in input fields or inside a terminal.
 
+### Seed test data
+
+To populate the world with sample projects and sessions:
+
+```bash
+node scripts/seed.js
+```
+
 ## Architecture
 
 ```
+scripts/
+  seed.js               Populates sample projects and sessions for testing
+
 server/
   index.js              Express + Socket.IO server, REST API, status detection
   store.js              JSON file persistence (data/store.json)
@@ -166,7 +177,7 @@ This tool spawns real terminal processes and provides full shell access through 
 - The `/api/discover` endpoint lists git repos on your machine
 - **Do not expose this to the public internet**
 
-For remote access, use a VPN or [Tailscale](https://tailscale.com) (see [SETUP.md](SETUP.md)).
+For remote access, use a VPN or [Tailscale](https://tailscale.com).
 
 ## License
 
