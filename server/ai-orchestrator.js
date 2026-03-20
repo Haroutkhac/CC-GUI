@@ -264,5 +264,10 @@ Respond ONLY with the JSON array, nothing else:`;
     delete this.lastAutoRespondAt[sessionId];
     this.pendingSessions.delete(sessionId);
     this.autoResponses = this.autoResponses.filter(r => r.sessionId !== sessionId);
+    // Cancel pending batch if no sessions remain
+    if (this.pendingSessions.size === 0 && this._timer) {
+      clearTimeout(this._timer);
+      this._timer = null;
+    }
   }
 }

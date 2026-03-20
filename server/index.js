@@ -508,6 +508,11 @@ if (isProduction) {
 function shutdown(signal) {
   console.log(`\n  ${signal} received. Cleaning up terminals...`);
   terminalManager.killAll();
+  // Cancel any pending AI orchestrator work
+  if (aiOrchestrator._timer) {
+    clearTimeout(aiOrchestrator._timer);
+    aiOrchestrator._timer = null;
+  }
   // Clean up status buffers
   for (const key of Object.keys(statusBuffers)) {
     delete statusBuffers[key];
