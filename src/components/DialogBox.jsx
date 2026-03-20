@@ -236,6 +236,18 @@ export function CreateSessionDialog({ projectId, projectName, onSubmit, onCancel
 }
 
 export function ConfirmDialog({ message, onConfirm, onCancel }) {
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        onConfirm();
+      }
+    };
+    window.addEventListener('keydown', handleKey, true);
+    return () => window.removeEventListener('keydown', handleKey, true);
+  }, [onConfirm]);
+
   return (
     <div className="pkmn-overlay pkmn-confirm-overlay" onClick={onCancel}>
       <div className="pkmn-dialog" onClick={e => e.stopPropagation()}>
