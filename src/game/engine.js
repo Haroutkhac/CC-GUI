@@ -17,24 +17,14 @@ const RUG = 6;
 const DOORMAT = 7;
 const SIGN = 8;
 
-// Seating positions around a table (relative offsets from table tile)
-const SEAT_OFFSETS = [
-  // Ring 1: cardinal
-  { dx: 0, dy: 1, labelSide: 'below' },
-  { dx: 1, dy: 0, labelSide: 'right' },
-  { dx: -1, dy: 0, labelSide: 'left' },
-  { dx: 0, dy: -1, labelSide: 'above' },
-  // Ring 1: diagonal
-  { dx: 1, dy: 1, labelSide: 'below' },
-  { dx: -1, dy: 1, labelSide: 'below' },
-  { dx: 1, dy: -1, labelSide: 'above' },
-  { dx: -1, dy: -1, labelSide: 'above' },
-  // Ring 2: cardinal
-  { dx: 0, dy: 2, labelSide: 'below' },
-  { dx: 2, dy: 0, labelSide: 'right' },
-  { dx: -2, dy: 0, labelSide: 'left' },
-  { dx: 0, dy: -2, labelSide: 'above' },
-];
+// Simple string hash for deterministic random placement
+function _hash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
 
 // Persist player position across engine recreation (HMR, StrictMode remount)
 let _savedPlayerPos = null;
@@ -213,6 +203,29 @@ export class GameEngine {
         }
       }
     });
+
+    // Nudge player out if they ended up inside a table or NPC after world update
+    if (!this.isWalkable(this.player.tileX, this.player.tileY)) {
+      const p = this.player;
+      // Try adjacent tiles, then fall back to default spawn
+      const nudges = [{dx:0,dy:1},{dx:1,dy:0},{dx:0,dy:-1},{dx:-1,dy:0}];
+      let found = false;
+      for (const {dx, dy} of nudges) {
+        if (this.isWalkable(p.tileX + dx, p.tileY + dy)) {
+          p.tileX += dx; p.tileY += dy;
+          p.pixelX = p.tileX; p.pixelY = p.tileY;
+          p.targetX = p.tileX; p.targetY = p.tileY;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        p.tileX = 8; p.tileY = 10;
+        p.pixelX = 8; p.pixelY = 10;
+        p.targetX = 8; p.targetY = 10;
+      }
+      p.moving = false;
+    }
   }
 
   setupInput() {
