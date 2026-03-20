@@ -86,10 +86,23 @@ export default function TerminalOverlay({
       if (!mod || e.type !== 'keydown') return true;
 
       switch (e.key) {
-        case 'a': // Select all
+        case 'a': { // Select current input line (not entire scrollback)
           e.preventDefault();
-          term.selectAll();
+          const buf = term.buffer.active;
+          const absRow = buf.baseY + buf.cursorY;
+          const line = buf.getLine(absRow);
+          if (line) {
+            const text = line.translateToString(true);
+            // Find prompt character and select everything after it
+            const promptIdx = Math.max(text.lastIndexOf('> '), text.lastIndexOf('❯ '));
+            const start = promptIdx >= 0 ? promptIdx + 2 : 0;
+            const length = text.trimEnd().length - start;
+            if (length > 0) {
+              term.select(start, absRow, length);
+            }
+          }
           return false;
+        }
         case 'c': // Copy selection (fall through to default if no selection)
           if (term.hasSelection()) {
             e.preventDefault();
