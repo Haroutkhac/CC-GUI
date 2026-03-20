@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import GameCanvas from './components/GameCanvas.jsx';
 import TerminalOverlay from './components/TerminalOverlay.jsx';
-import { CreateProjectDialog, CreateSessionDialog, TableContextMenu } from './components/DialogBox.jsx';
+import { CreateProjectDialog, CreateSessionDialog, TableContextMenu, ConfirmDialog } from './components/DialogBox.jsx';
 import NotificationToast from './components/NotificationToast.jsx';
 import HUD from './components/HUD.jsx';
 import StatusDashboard from './components/StatusDashboard.jsx';
@@ -24,6 +24,7 @@ export default function App() {
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [orchestratorOpen, setOrchestratorOpen] = useState(false);
   const [carouselProject, setCarouselProject] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null); // { message, onConfirm }
 
   // Open terminal for a session
   const openTerminal = useCallback((sessionId) => {
@@ -41,20 +42,21 @@ export default function App() {
 
   // X key near NPC -> dismiss with confirm
   const handleDismissNPC = useCallback((sessionId, name) => {
-    if (confirm(`Release ${name || 'this Pokemon'}?`)) {
-      deleteSession(sessionId);
-    }
+    setConfirmDialog({
+      message: `Are you sure you want to release ${name || 'this Pokemon'}? This can't be undone!`,
+      onConfirm: () => { deleteSession(sessionId); setConfirmDialog(null); },
+    });
   }, [deleteSession]);
 
   // X key near table -> delete project with confirm
-  const handleDeleteTable = useCallback(async (projectId, name) => {
-    if (confirm(`Delete ${name || 'this table'} and release all its Pokemon?`)) {
-      try {
-        await deleteProject(projectId);
-      } catch (err) {
-        console.error('Failed to delete project:', err);
-      }
-    }
+  const handleDeleteTable = useCallback((projectId, name) => {
+    setConfirmDialog({
+      message: `Delete ${name || 'this table'} and release all its Pokemon? This can't be undone!`,
+      onConfirm: async () => {
+        try { await deleteProject(projectId); } catch (err) { console.error('Failed to delete project:', err); }
+        setConfirmDialog(null);
+      },
+    });
   }, [deleteProject]);
 
   // Table click -> open carousel
@@ -128,7 +130,8 @@ export default function App() {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        if (activeTerminal) setActiveTerminal(null);
+        if (confirmDialog) setConfirmDialog(null);
+        else if (activeTerminal) setActiveTerminal(null);
         else if (orchestratorOpen) setOrchestratorOpen(false);
         else if (carouselProject) setCarouselProject(null);
         else if (dashboardOpen) setDashboardOpen(false);
@@ -179,7 +182,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKey, true);
     return () => window.removeEventListener('keydown', handleKey, true);
-  }, [activeTerminal, dialog, dashboardOpen, orchestratorOpen, carouselProject, projects, orchestratorQueue, openTerminal, handleQuickCreate]);
+  }, [activeTerminal, dialog, dashboardOpen, orchestratorOpen, carouselProject, confirmDialog, projects, orchestratorQueue, openTerminal, handleQuickCreate]);
 
   const activeSession = activeTerminal ? sessions.find(s => s.id === activeTerminal) : null;
   const projectSessionsForSwipe = activeProjectId
@@ -197,7 +200,7 @@ export default function App() {
         onTableInteract={handleTableInteract}
         onDeleteTable={handleDeleteTable}
         onDismissNPC={handleDismissNPC}
-        inputPaused={!!activeTerminal || !!dialog || dashboardOpen || orchestratorOpen || !!carouselProject}
+        inputPaused={!!activeTerminal || !!dialog || dashboardOpen || orchestratorOpen || !!carouselProject || !!confirmDialog}
       />
 
       <HUD
@@ -267,6 +270,7 @@ export default function App() {
       {/* Terminal overlay */}
       {activeTerminal && socket && (
         <TerminalOverlay
+          key={activeTerminal}
           sessionId={activeTerminal}
           sessionName={activeSession?.name}
           socket={socket}
@@ -305,6 +309,9 @@ export default function App() {
           onDeleteSession={deleteSession}
           onSelectSession={openTerminal}
           onClose={() => { setDialog(null); setDialogData(null); }}
+          onConfirm={(message, action) => {
+            setConfirmDialog({ message, onConfirm: () => { action(); setConfirmDialog(null); } });
+          }}
         />
       )}
 
@@ -313,6 +320,14 @@ export default function App() {
         onDismiss={dismissNotification}
         onJump={handleNotificationJump}
       />
+
+      {confirmDialog && (
+        <ConfirmDialog
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
     </div>
   );
 }

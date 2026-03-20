@@ -118,7 +118,15 @@ export default function TerminalOverlay({
     socket.on('terminal:exit', handleExit);
     socket.on('terminal:error', handleError);
 
-    attachTerminal(sessionId);
+    // Defer attach so React StrictMode cleanup can cancel the first
+    // invocation before it fires — prevents double-scrollback on reopen.
+    let attached = false;
+    const attachTimer = setTimeout(() => {
+      if (!disposed) {
+        attached = true;
+        attachTerminal(sessionId);
+      }
+    }, 0);
 
     const handleResize = () => {
       if (!disposed) fitAddon.fit();
@@ -131,13 +139,14 @@ export default function TerminalOverlay({
 
     return () => {
       disposed = true;
+      clearTimeout(attachTimer);
       cancelAnimationFrame(rafId);
       socket.off('terminal:data', handleData);
       socket.off('terminal:attached', handleAttached);
       socket.off('terminal:exit', handleExit);
       socket.off('terminal:error', handleError);
       window.removeEventListener('resize', handleResize);
-      detachTerminal(sessionId);
+      if (attached) detachTerminal(sessionId);
       term.dispose();
       xtermRef.current = null;
       fitAddonRef.current = null;
