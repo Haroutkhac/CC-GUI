@@ -17,14 +17,24 @@ export default function App() {
     dismissNotification,
   } = useSocket();
 
-  // Restore last-open terminal from localStorage so page refresh picks up where you left off
-  const [activeTerminal, setActiveTerminal] = useState(() => {
-    try { return localStorage.getItem('cc-gui:activeTerminal') || null; } catch { return null; }
-  });
-  const [activeProjectId, setActiveProjectId] = useState(() => {
-    try { return localStorage.getItem('cc-gui:activeProjectId') || null; } catch { return null; }
-  });
+  const [activeTerminal, setActiveTerminal] = useState(null);
+  const [activeProjectId, setActiveProjectId] = useState(null);
   const lastTerminalRef = useRef(null);
+  const restoredRef = useRef(false);
+
+  // Restore last-open terminal from localStorage once sessions have loaded
+  useEffect(() => {
+    if (restoredRef.current || sessions.length === 0) return;
+    restoredRef.current = true;
+    try {
+      const savedTerminal = localStorage.getItem('cc-gui:activeTerminal');
+      const savedProject = localStorage.getItem('cc-gui:activeProjectId');
+      if (savedTerminal && sessions.find(s => s.id === savedTerminal)) {
+        setActiveTerminal(savedTerminal);
+        if (savedProject) setActiveProjectId(savedProject);
+      }
+    } catch {}
+  }, [sessions]);
 
   // Persist UI state to localStorage
   useEffect(() => {
@@ -46,13 +56,6 @@ export default function App() {
       }
     } catch {}
   }, [activeProjectId]);
-
-  // Clear restored terminal if the session no longer exists (deleted or stale)
-  useEffect(() => {
-    if (activeTerminal && sessions.length > 0 && !sessions.find(s => s.id === activeTerminal)) {
-      setActiveTerminal(null);
-    }
-  }, [activeTerminal, sessions]);
   const [dialog, setDialog] = useState(null);
   const [dialogData, setDialogData] = useState(null);
   const [dashboardOpen, setDashboardOpen] = useState(false);
@@ -223,7 +226,9 @@ export default function App() {
     if (activeTerminal) lastTerminalRef.current = activeTerminal;
   }, [activeTerminal]);
 
-  const terminalSessionId = activeTerminal || lastTerminalRef.current;
+  // Only keep the terminal mounted if the session still exists
+  const lastId = lastTerminalRef.current;
+  const terminalSessionId = activeTerminal || (lastId && sessions.find(s => s.id === lastId) ? lastId : null);
   const terminalSession = terminalSessionId ? sessions.find(s => s.id === terminalSessionId) : null;
   const projectSessionsForSwipe = activeProjectId
     ? sessions.filter(s => s.projectId === activeProjectId)

@@ -5,6 +5,7 @@ const STATUS_COLORS = {
   active: '#3060A0',
   working: '#40A048',
   waiting: '#C08800',
+  completed: '#2ECC71',
   exited: '#C04040',
 };
 

@@ -380,6 +380,7 @@ html, body, #root {
 .pkmn-session-status.active { color: #3060A0; border-color: #3060A0; }
 .pkmn-session-status.working { color: #40A048; border-color: #40A048; }
 .pkmn-session-status.waiting { color: #C08800; border-color: #C08800; animation: blink 1s infinite; }
+.pkmn-session-status.completed { color: #2ECC71; border-color: #2ECC71; }
 .pkmn-session-status.exited { color: #C04040; border-color: #C04040; }
 .pkmn-dismiss-btn {
   background: none; border: 1px solid #C04040; color: #C04040;
@@ -509,9 +510,11 @@ html, body, #root {
 }
 .notification-toast.visible { transform: translateX(0); opacity: 1; }
 .notification-toast.warning { border-color: #C08800; }
+.notification-toast.success { border-color: #2ECC71; }
 .notification-toast.info { border-color: #3060A0; }
 .notification-icon { font-size: 10px; font-weight: bold; }
 .notification-toast.warning .notification-icon { color: #C08800; }
+.notification-toast.success .notification-icon { color: #2ECC71; }
 .notification-toast.info .notification-icon { color: #3060A0; }
 .notification-message { flex: 1; }
 .notification-dismiss {

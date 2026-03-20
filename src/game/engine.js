@@ -189,20 +189,34 @@ export class GameEngine {
           }
         }
 
-        // Place project's Pokemon randomly on its rug tiles
+        // Only use perimeter rug tiles (reachable from outside the rug)
+        const rugSet = new Set(rugTiles.map(t => `${t.x},${t.y}`));
+        rugSet.add(`${tx},${ty}`); // include table so interior detection works
+        const perimeterTiles = rugTiles.filter(t => {
+          for (const [ox, oy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+            const nx = t.x + ox, ny = t.y + oy;
+            if (!rugSet.has(`${nx},${ny}`)) return true;
+          }
+          return false;
+        });
+
+        // Place project's Pokemon randomly on perimeter rug tiles
         const projectSessions = this.sessions.filter(s => s.projectId === project.id);
         const taken = new Set();
+        // Reserve the player's current tile so NPCs never land on it
+        const p = this.player;
+        taken.add(`${p.tileX},${p.tileY}`);
         for (const session of projectSessions) {
-          if (rugTiles.length === 0) break;
+          if (perimeterTiles.length === 0) break;
           const h = _hash(session.id);
-          let i = h % rugTiles.length;
+          let i = h % perimeterTiles.length;
           let attempts = 0;
-          while (taken.has(`${rugTiles[i].x},${rugTiles[i].y}`) && attempts < rugTiles.length) {
-            i = (i + 1) % rugTiles.length;
+          while (taken.has(`${perimeterTiles[i].x},${perimeterTiles[i].y}`) && attempts < perimeterTiles.length) {
+            i = (i + 1) % perimeterTiles.length;
             attempts++;
           }
-          if (attempts < rugTiles.length) {
-            const pos = rugTiles[i];
+          if (attempts < perimeterTiles.length) {
+            const pos = perimeterTiles[i];
             taken.add(`${pos.x},${pos.y}`);
             const labelSide = pos.y >= ty ? 'below' : 'above';
             this.npcPositions.push({
