@@ -12,8 +12,12 @@ export function useSocket() {
   const [notifications, setNotifications] = useState([]);
   const [orchestratorQueue, setOrchestratorQueue] = useState([]);
   const [aiSummaries, setAiSummaries] = useState({});
-  const [aiStatus, setAiStatus] = useState({ autoRespondEnabled: true });
+  const [aiStatus, setAiStatus] = useState({ autoRespondEnabled: true, coordinationEnabled: false });
   const [autoResponses, setAutoResponses] = useState([]);
+  const [aiDiffs, setAiDiffs] = useState({});
+  const [aiBranches, setAiBranches] = useState({});
+  const [aiConflicts, setAiConflicts] = useState({});
+  const [prStatuses, setPrStatuses] = useState({});
 
   // Force reload when restored from bfcache (back/forward navigation)
   useEffect(() => {
@@ -49,6 +53,13 @@ export function useSocket() {
     socket.on('ai:auto-response', (entry) => {
       setAutoResponses(prev => [...prev.slice(-50), entry]);
     });
+    socket.on('ai:diffs', (data) => setAiDiffs(data || {}));
+    socket.on('ai:branches', (data) => setAiBranches(data || {}));
+    socket.on('ai:conflicts', (data) => setAiConflicts(data || {}));
+    socket.on('ai:pr-status', (entry) => {
+      setPrStatuses(prev => ({ ...prev, [entry.sessionId]: entry }));
+    });
+    socket.on('ai:pr-statuses', (data) => setPrStatuses(data || {}));
 
     socket.on('notification', (notif) => {
       setNotifications(prev => [...prev.slice(-10), { ...notif, id: `notif-${Date.now()}-${++_notifIdCounter}`, time: new Date() }]);
@@ -56,19 +67,35 @@ export function useSocket() {
       // Vibrate on mobile for input_needed
       if (notif.type === 'input_needed') {
         navigator.vibrate?.(200);
-        // Pokemon-style beep (reuse single AudioContext)
+        // Pokemon-style attention chime (ascending two-tone with fade)
         try {
           if (!window._ccAudioCtx) window._ccAudioCtx = new AudioContext();
           const actx = window._ccAudioCtx;
           if (actx.state === 'suspended') actx.resume();
-          const osc = actx.createOscillator();
-          const gain = actx.createGain();
-          osc.frequency.value = 880;
-          osc.type = 'square';
-          gain.gain.value = 0.1;
-          osc.connect(gain).connect(actx.destination);
-          osc.start();
-          setTimeout(() => osc.stop(), 100);
+          const now = actx.currentTime;
+
+          // First note — E5
+          const osc1 = actx.createOscillator();
+          const gain1 = actx.createGain();
+          osc1.type = 'sine';
+          osc1.frequency.value = 659.25;
+          gain1.gain.setValueAtTime(0.18, now);
+          gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          osc1.connect(gain1).connect(actx.destination);
+          osc1.start(now);
+          osc1.stop(now + 0.2);
+
+          // Second note — A5 (higher, resolving)
+          const osc2 = actx.createOscillator();
+          const gain2 = actx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.value = 880;
+          gain2.gain.setValueAtTime(0.0001, now + 0.12);
+          gain2.gain.exponentialRampToValueAtTime(0.18, now + 0.15);
+          gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+          osc2.connect(gain2).connect(actx.destination);
+          osc2.start(now + 0.12);
+          osc2.stop(now + 0.45);
         } catch (e) { /* audio not available */ }
       }
 
@@ -98,6 +125,11 @@ export function useSocket() {
       socket.off('ai:summaries');
       socket.off('ai:status');
       socket.off('ai:auto-response');
+      socket.off('ai:diffs');
+      socket.off('ai:branches');
+      socket.off('ai:conflicts');
+      socket.off('ai:pr-status');
+      socket.off('ai:pr-statuses');
       socket.off('notification');
       socket.close();
     };
@@ -173,6 +205,18 @@ export function useSocket() {
     socketRef.current?.emit('ai:refresh');
   }, []);
 
+  const toggleCoordination = useCallback(() => {
+    socketRef.current?.emit('ai:toggle-coordination');
+  }, []);
+
+  const createPR = useCallback((sessionId) => {
+    socketRef.current?.emit('ai:create-pr', { sessionId });
+  }, []);
+
+  const createAllPRs = useCallback((projectId) => {
+    socketRef.current?.emit('ai:create-all-prs', { projectId });
+  }, []);
+
   return {
     socket: socketRef.current,
     connected,
@@ -184,6 +228,10 @@ export function useSocket() {
     aiSummaries,
     aiStatus,
     autoResponses,
+    aiDiffs,
+    aiBranches,
+    aiConflicts,
+    prStatuses,
     createProject,
     deleteProject,
     createSession,
@@ -196,5 +244,8 @@ export function useSocket() {
     dismissNotification,
     toggleAutoRespond,
     refreshAISummaries,
+    toggleCoordination,
+    createPR,
+    createAllPRs,
   };
 }
