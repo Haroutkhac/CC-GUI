@@ -200,12 +200,13 @@ export default function TerminalOverlay({
     };
   }, [sessionId, socket, sendInput, resizeTerminal, attachTerminal, detachTerminal]);
 
-  // Re-fit and focus terminal when overlay becomes visible again
+  // Re-fit, scroll to bottom, and focus terminal when overlay becomes visible again
   useEffect(() => {
     if (visible && fitAddonRef.current && xtermRef.current) {
       requestAnimationFrame(() => {
         if (fitAddonRef.current && xtermRef.current) {
           try { fitAddonRef.current.fit(); } catch (_) {}
+          xtermRef.current.scrollToBottom();
           xtermRef.current.focus();
         }
       });

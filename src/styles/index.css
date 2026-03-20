@@ -142,8 +142,8 @@ html, body, #root {
 .dash-header-top {
   display: flex; justify-content: space-between; align-items: center;
 }
-.dash-title { font-size: 10px; color: #383838; }
-.dash-subtitle { font-size: 7px; color: #808080; margin-top: 6px; display: flex; gap: 6px; align-items: center; }
+.dash-title { font-size: 12px; color: #383838; }
+.dash-subtitle { font-size: 8px; color: #808080; margin-top: 6px; display: flex; gap: 6px; align-items: center; }
 .dash-sep { color: #C0B8A0; }
 .dash-attention { color: #C08800; animation: blink 1s infinite; }
 .dash-done { color: #2ECC71; }
@@ -154,16 +154,16 @@ html, body, #root {
 }
 .dash-close:hover { background: #E8E0D0; }
 .dash-body { padding-bottom: 16px; }
-.dash-empty { font-size: 8px; color: #808080; padding: 24px 16px; text-align: center; }
+.dash-empty { font-size: 9px; color: #808080; padding: 24px 16px; text-align: center; }
 
 .dash-project { border-bottom: 2px solid #E8E0D0; }
 .dash-project-header {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 16px 4px;
 }
-.dash-project-name { font-size: 8px; color: #383838; text-transform: uppercase; }
-.dash-project-count { font-size: 7px; color: #808080; }
-.dash-no-sessions { font-size: 7px; color: #B0B0B0; padding: 6px 16px 10px; }
+.dash-project-name { font-size: 9px; color: #383838; text-transform: uppercase; }
+.dash-project-count { font-size: 8px; color: #808080; }
+.dash-no-sessions { font-size: 8px; color: #B0B0B0; padding: 6px 16px 10px; }
 
 .dash-session-list { display: flex; flex-direction: column; }
 .dash-session-row {
@@ -182,19 +182,19 @@ html, body, #root {
 .dash-session-completed:hover { background: rgba(46, 204, 113, 0.12); }
 
 .dash-session-main {
-  display: flex; align-items: center; gap: 8px; font-size: 7px; color: #383838;
+  display: flex; align-items: center; gap: 8px; font-size: 9px; color: #383838;
 }
-.dash-starter { color: #808080; min-width: 60px; font-size: 6px; text-transform: capitalize; }
+.dash-starter { color: #808080; min-width: 70px; font-size: 8px; text-transform: capitalize; }
 .dash-session-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dash-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.dash-status-text { font-size: 6px; text-transform: uppercase; min-width: 40px; text-align: right; }
+.dash-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dash-status-text { font-size: 7px; text-transform: uppercase; min-width: 48px; text-align: right; }
 .dash-session-summary {
-  font-size: 6px; color: #606060; margin-top: 4px; padding-left: 68px;
+  font-size: 8px; color: #505050; margin-top: 4px; padding-left: 78px;
   line-height: 1.6;
   font-family: monospace;
 }
 .dash-session-action {
-  font-size: 5px; color: #3060A0; margin-top: 2px; padding-left: 68px;
+  font-size: 7px; color: #3060A0; margin-top: 2px; padding-left: 78px;
   font-family: monospace; text-transform: uppercase;
 }
 .dash-session-selected {
@@ -203,21 +203,21 @@ html, body, #root {
   outline-offset: -2px;
 }
 .dash-nav-hint {
-  font-size: 5px; color: #B0A890; margin-top: 6px;
+  font-size: 7px; color: #B0A890; margin-top: 6px;
   display: flex; gap: 6px; align-items: center;
 }
 .dash-conflict { color: #C04040; animation: blink 1s infinite; }
 .dash-overlap { color: #C08800; }
 .dash-conflict-badge {
-  font-size: 5px; color: #C04040; border: 1px solid #C04040;
-  padding: 1px 4px; animation: blink 1s infinite; margin-left: auto;
+  font-size: 7px; color: #C04040; border: 1px solid #C04040;
+  padding: 2px 5px; animation: blink 1s infinite; margin-left: auto;
 }
 .dash-session-conflict {
   background: rgba(192, 64, 64, 0.06) !important;
   border-left: 3px solid #C04040;
 }
 .dash-session-git {
-  font-size: 5px; color: #808080; margin-top: 3px; padding-left: 68px;
+  font-size: 7px; color: #808080; margin-top: 3px; padding-left: 78px;
   display: flex; gap: 8px; align-items: center; font-family: monospace;
 }
 .dash-git-branch { color: #3060A0; }
@@ -225,12 +225,12 @@ html, body, #root {
 .dash-git-overlap { color: #C08800; }
 .dash-git-conflict { color: #C04040; font-weight: bold; }
 .dash-session-pr {
-  margin-top: 3px; padding-left: 68px;
+  margin-top: 3px; padding-left: 78px;
   display: flex; gap: 6px;
 }
 .dash-pr-create, .dash-pr-done, .dash-pr-busy, .dash-pr-error {
   font-family: 'Press Start 2P', monospace;
-  font-size: 5px; padding: 2px 6px; border: 1px solid;
+  font-size: 7px; padding: 3px 8px; border: 1px solid;
   cursor: pointer;
 }
 .dash-pr-create { color: #3060A0; border-color: #3060A0; }
@@ -634,8 +634,8 @@ html, body, #root {
 .orch-header-top {
   display: flex; justify-content: space-between; align-items: flex-start;
 }
-.orch-title { font-size: 11px; letter-spacing: 1px; }
-.orch-subtitle { font-size: 7px; color: #C0B8A0; margin-top: 6px; display: flex; gap: 6px; align-items: center; }
+.orch-title { font-size: 13px; letter-spacing: 1px; }
+.orch-subtitle { font-size: 8px; color: #C0B8A0; margin-top: 6px; display: flex; gap: 6px; align-items: center; }
 .orch-sep { color: #606060; }
 .orch-urgent { color: #C08800; animation: blink 1s infinite; }
 .orch-close {
@@ -649,7 +649,7 @@ html, body, #root {
   flex: 1; overflow-y: auto;
   padding-bottom: 8px;
 }
-.orch-empty { font-size: 8px; color: #808080; padding: 32px 16px; text-align: center; line-height: 2; }
+.orch-empty { font-size: 9px; color: #808080; padding: 32px 16px; text-align: center; line-height: 2; }
 
 .orch-item {
   font-family: 'Press Start 2P', monospace;
@@ -677,18 +677,18 @@ html, body, #root {
 .orch-item-info { flex: 1; min-width: 0; }
 .orch-item-top {
   display: flex; align-items: center; gap: 6px;
-  font-size: 7px; color: #383838;
+  font-size: 9px; color: #383838;
   margin-bottom: 3px;
 }
 .orch-item-name { font-weight: bold; }
 .orch-item-project {
-  font-size: 6px; color: #808080;
-  padding: 1px 4px; border: 1px solid #C0B8A0;
+  font-size: 7px; color: #808080;
+  padding: 2px 5px; border: 1px solid #C0B8A0;
 }
-.orch-item-time { font-size: 6px; color: #B0B0B0; margin-left: auto; }
-.orch-item-reason { font-size: 7px; margin-bottom: 2px; }
+.orch-item-time { font-size: 7px; color: #B0B0B0; margin-left: auto; }
+.orch-item-reason { font-size: 8px; margin-bottom: 2px; }
 .orch-item-context {
-  font-size: 5px; color: #808080;
+  font-size: 7px; color: #808080;
   font-family: monospace;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 100%;
@@ -698,7 +698,7 @@ html, body, #root {
 
 .orch-item-action {
   flex-shrink: 0;
-  font-size: 6px;
+  font-size: 7px;
   padding: 4px 8px;
   border: 2px solid;
   text-transform: uppercase;
@@ -712,13 +712,13 @@ html, body, #root {
   outline-offset: -2px;
 }
 .orch-item-summary {
-  font-size: 6px; color: #606060;
+  font-size: 8px; color: #505050;
   font-family: monospace;
   line-height: 1.6;
   margin-top: 2px;
 }
 .orch-nav-hint {
-  font-size: 5px; color: #808080; margin-top: 6px;
+  font-size: 7px; color: #808080; margin-top: 6px;
   display: flex; gap: 6px; align-items: center;
 }
 .orch-conflict { color: #C04040; animation: blink 1s infinite; }
@@ -729,11 +729,11 @@ html, body, #root {
   background: rgba(192, 64, 64, 0.04);
 }
 .orch-conflicts-title {
-  font-size: 6px; color: #C04040; margin-bottom: 6px;
+  font-size: 8px; color: #C04040; margin-bottom: 6px;
   letter-spacing: 1px;
 }
 .orch-conflict-row {
-  font-size: 6px; padding: 4px 0;
+  font-size: 8px; padding: 4px 0;
   display: flex; align-items: flex-start; gap: 6px;
   line-height: 1.6;
 }
@@ -743,19 +743,19 @@ html, body, #root {
   flex-shrink: 0; font-weight: bold;
   min-width: 14px; text-align: center;
 }
-.orch-conflict-files { font-family: monospace; font-size: 5px; color: #808080; }
+.orch-conflict-files { font-family: monospace; font-size: 7px; color: #808080; }
 
 .orch-item-actions {
   display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
   flex-shrink: 0;
 }
 .orch-item-git {
-  font-size: 5px; color: #808080; font-family: monospace;
-  padding: 1px 4px; border: 1px solid #C0B8A0;
+  font-size: 7px; color: #808080; font-family: monospace;
+  padding: 2px 5px; border: 1px solid #C0B8A0;
 }
 .orch-pr-badge {
   font-family: 'Press Start 2P', monospace;
-  font-size: 5px; padding: 2px 6px;
+  font-size: 7px; padding: 3px 8px;
   border: 1px solid; cursor: pointer;
 }
 .orch-pr-done { color: #2ECC71; border-color: #2ECC71; }

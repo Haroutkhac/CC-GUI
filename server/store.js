@@ -97,6 +97,7 @@ export class Store {
       command: command || 'claude',
       status: 'idle',
       starter,
+      claudeSessionId: null, // set when Claude CLI is spawned with --session-id
       createdAt: new Date().toISOString(),
     };
     this.data.sessions[id] = session;
