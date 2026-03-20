@@ -17,25 +17,6 @@ const RUG = 6;
 const DOORMAT = 7;
 const SIGN = 8;
 
-// Seating positions around a table (relative offsets from table tile)
-const SEAT_OFFSETS = [
-  // Ring 1: cardinal
-  { dx: 0, dy: 1, labelSide: 'below' },
-  { dx: 1, dy: 0, labelSide: 'right' },
-  { dx: -1, dy: 0, labelSide: 'left' },
-  { dx: 0, dy: -1, labelSide: 'above' },
-  // Ring 1: diagonal
-  { dx: 1, dy: 1, labelSide: 'below' },
-  { dx: -1, dy: 1, labelSide: 'below' },
-  { dx: 1, dy: -1, labelSide: 'above' },
-  { dx: -1, dy: -1, labelSide: 'above' },
-  // Ring 2: cardinal
-  { dx: 0, dy: 2, labelSide: 'below' },
-  { dx: 2, dy: 0, labelSide: 'right' },
-  { dx: -2, dy: 0, labelSide: 'left' },
-  { dx: 0, dy: -2, labelSide: 'above' },
-];
-
 // Simple string hash for deterministic random placement
 function _hash(str) {
   let h = 0;
@@ -190,26 +171,8 @@ export class GameEngine {
           region: project.region || 'Kanto',
         });
 
-        const projectSessions = this.sessions.filter(s => s.projectId === project.id);
-        projectSessions.forEach((session, sIdx) => {
-          // Seat Pokemon around the table using offset array
-          const seat = SEAT_OFFSETS[sIdx % SEAT_OFFSETS.length];
-          const nx = tx + seat.dx;
-          const ny = ty + seat.dy;
-          const labelSide = seat.labelSide;
-          if (ny >= 3 && ny < this.mapHeight - 1 && nx >= 1 && nx < this.mapWidth - 1) {
-            this.npcPositions.push({
-              sessionId: session.id,
-              x: nx, y: ny,
-              starter: session.starter || 'bulbasaur',
-              status: session.status || 'idle',
-              name: session.name,
-              labelSide,
-            });
-          }
-        });
-
         // Rug around table
+        const rugTiles = [];
         for (let dy = -1; dy <= 2; dy++) {
           for (let dx = -1; dx <= 2; dx++) {
             const ry = ty + dy;
@@ -218,7 +181,38 @@ export class GameEngine {
               if (this.map[ry][rx] === FLOOR) {
                 this.map[ry][rx] = RUG;
               }
+              // Collect rug tiles that aren't the table itself
+              if (!(rx === tx && ry === ty)) {
+                rugTiles.push({ x: rx, y: ry });
+              }
             }
+          }
+        }
+
+        // Place project's Pokemon randomly on its rug tiles
+        const projectSessions = this.sessions.filter(s => s.projectId === project.id);
+        const taken = new Set();
+        for (const session of projectSessions) {
+          if (rugTiles.length === 0) break;
+          const h = _hash(session.id);
+          let i = h % rugTiles.length;
+          let attempts = 0;
+          while (taken.has(`${rugTiles[i].x},${rugTiles[i].y}`) && attempts < rugTiles.length) {
+            i = (i + 1) % rugTiles.length;
+            attempts++;
+          }
+          if (attempts < rugTiles.length) {
+            const pos = rugTiles[i];
+            taken.add(`${pos.x},${pos.y}`);
+            const labelSide = pos.y >= ty ? 'below' : 'above';
+            this.npcPositions.push({
+              sessionId: session.id,
+              x: pos.x, y: pos.y,
+              starter: session.starter || 'bulbasaur',
+              status: session.status || 'idle',
+              name: session.name,
+              labelSide,
+            });
           }
         }
       }
