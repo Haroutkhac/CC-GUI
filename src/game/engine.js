@@ -93,6 +93,7 @@ export class GameEngine {
     this.onTableInteract = null;
     this.onDeleteTable = null;
     this.onDismissNPC = null;
+    this.onCreateAtTable = null;
 
     // Pause input when overlays are open
     this.inputPaused = false;
@@ -290,6 +291,14 @@ export class GameEngine {
         } else if (this.nearbyTable) {
           e.preventDefault();
           this.onDeleteTable?.(this.nearbyTable.projectId, this.nearbyTable.name);
+        }
+      }
+
+      // Create Pokemon at nearby table
+      if (e.key === 'c' || e.key === 'C') {
+        if (this.nearbyTable) {
+          e.preventDefault();
+          this.onCreateAtTable?.(this.nearbyTable.projectId);
         }
       }
     };
@@ -581,11 +590,11 @@ export class GameEngine {
 
     // Interaction prompt (Pokemon-style bottom bar)
     if (this.nearbyNPC && this.nearbyTable) {
-      this.drawPromptBox(`ENTER talk  |  SPACE table  |  X release  ${this.nearbyNPC.name}`);
+      this.drawPromptBox(`ENTER talk  |  SPACE table  |  C spawn  |  X release`);
     } else if (this.nearbyNPC) {
       this.drawPromptBox(`ENTER talk  |  X release  ${this.nearbyNPC.name}`);
     } else if (this.nearbyTable) {
-      this.drawPromptBox(`ENTER / SPACE for ${this.nearbyTable.name}`);
+      this.drawPromptBox(`ENTER / SPACE open  |  C spawn  ${this.nearbyTable.name}`);
     }
   }
 
