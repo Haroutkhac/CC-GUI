@@ -10,6 +10,7 @@ import fs from 'fs';
 import { TerminalManager } from './terminal-manager.js';
 import { Store } from './store.js';
 import { Orchestrator } from './orchestrator.js';
+import { WorktreeManager } from './worktree-manager.js';
 import { stripAnsi, STATUS_BUFFER_LIMIT } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +29,7 @@ app.use(express.json());
 const store = new Store(path.join(__dirname, '..', 'data', 'store.json'));
 const terminalManager = new TerminalManager();
 const orchestrator = new Orchestrator();
+const worktreeManager = new WorktreeManager();
 const statusBuffers = {};
 const sessionSummaries = {};
 
@@ -61,13 +63,18 @@ app.post('/api/projects', (req, res) => {
   res.json(project);
 });
 
-app.delete('/api/projects/:id', (req, res) => {
+app.delete('/api/projects/:id', async (req, res) => {
   const project = store.getProject(req.params.id);
   if (!project) return res.status(404).json({ error: 'not found' });
 
   const sessions = store.getSessionsByProject(req.params.id);
   for (const session of sessions) {
     terminalManager.kill(session.id);
+    // Clean up git worktree and branch
+    if (session.worktreePath) {
+      await worktreeManager.remove(project.path, session.worktreePath);
+      await worktreeManager.removeBranch(project.path, session.branch);
+    }
     delete statusBuffers[session.id];
     delete sessionSummaries[session.id];
     orchestrator.remove(session.id);
@@ -84,19 +91,43 @@ app.get('/api/sessions', (req, res) => {
   res.json(store.getSessions());
 });
 
-app.post('/api/sessions', (req, res) => {
+app.post('/api/sessions', async (req, res) => {
   const { projectId, name, command } = req.body;
   const project = store.getProject(projectId);
   if (!project) return res.status(404).json({ error: 'project not found' });
 
   const session = store.createSession(projectId, name || 'New Session', command);
+
+  // Create a git worktree for this session so it gets an isolated copy of the repo
+  try {
+    if (await worktreeManager.isGitRepo(project.path)) {
+      const shortId = session.id.slice(0, 8);
+      const branch = `cc-gui/${session.starter}-${shortId}`;
+      const worktreePath = await worktreeManager.create(project.path, session.id, branch);
+      store.updateSession(session.id, { worktreePath, branch });
+      Object.assign(session, { worktreePath, branch });
+    }
+  } catch (err) {
+    console.warn(`Worktree creation failed for session ${session.id}, using project path:`, err.message);
+  }
+
   io.emit('sessions:updated', store.getSessions());
   io.emit('projects:updated', store.getProjects());
   res.json(session);
 });
 
-app.delete('/api/sessions/:id', (req, res) => {
+app.delete('/api/sessions/:id', async (req, res) => {
+  const session = store.getSession(req.params.id);
+  const project = session ? store.getProject(session.projectId) : null;
+
   terminalManager.kill(req.params.id);
+
+  // Clean up git worktree and branch
+  if (session?.worktreePath && project) {
+    await worktreeManager.remove(project.path, session.worktreePath);
+    await worktreeManager.removeBranch(project.path, session.branch);
+  }
+
   store.deleteSession(req.params.id);
   delete statusBuffers[req.params.id];
   delete sessionSummaries[req.params.id];
@@ -240,8 +271,9 @@ io.on('connection', (socket) => {
       const commandArgs = parts.slice(1);
 
       try {
+        const cwd = session.worktreePath || project.path;
         term = terminalManager.create(sessionId, command, commandArgs, {
-          cwd: project.path,
+          cwd,
           onData: (data) => {
             io.to(`session:${sessionId}`).emit('terminal:data', { sessionId, data });
             detectStatus(sessionId, data);
