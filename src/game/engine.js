@@ -17,24 +17,17 @@ const RUG = 6;
 const DOORMAT = 7;
 const SIGN = 8;
 
-// Seating positions around a table (relative offsets from table tile)
-const SEAT_OFFSETS = [
-  // Ring 1: cardinal
-  { dx: 0, dy: 1, labelSide: 'below' },
-  { dx: 1, dy: 0, labelSide: 'right' },
-  { dx: -1, dy: 0, labelSide: 'left' },
-  { dx: 0, dy: -1, labelSide: 'above' },
-  // Ring 1: diagonal
-  { dx: 1, dy: 1, labelSide: 'below' },
-  { dx: -1, dy: 1, labelSide: 'below' },
-  { dx: 1, dy: -1, labelSide: 'above' },
-  { dx: -1, dy: -1, labelSide: 'above' },
-  // Ring 2: cardinal
-  { dx: 0, dy: 2, labelSide: 'below' },
-  { dx: 2, dy: 0, labelSide: 'right' },
-  { dx: -2, dy: 0, labelSide: 'left' },
-  { dx: 0, dy: -2, labelSide: 'above' },
-];
+// Simple string hash for deterministic random placement
+function _hash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+// Persist player position across engine recreation (HMR, StrictMode remount)
+let _savedPlayerPos = null;
 
 export class GameEngine {
   constructor(canvas) {
@@ -43,12 +36,15 @@ export class GameEngine {
     this.scale = 3;
     this.tileSize = TILE * this.scale;
 
-    // Player - grid-snapped
+    // Player - grid-snapped; restore saved position if available
+    const startX = _savedPlayerPos?.tileX ?? 8;
+    const startY = _savedPlayerPos?.tileY ?? 10;
+    const startDir = _savedPlayerPos?.direction ?? 'down';
     this.player = {
-      tileX: 8, tileY: 10,     // current tile
-      pixelX: 8, pixelY: 10,   // visual position (for smooth interpolation)
-      targetX: 8, targetY: 10, // move target
-      direction: 'down',
+      tileX: startX, tileY: startY,
+      pixelX: startX, pixelY: startY,
+      targetX: startX, targetY: startY,
+      direction: startDir,
       frame: 0,
       moving: false,
       moveStart: 0,
@@ -207,6 +203,29 @@ export class GameEngine {
         }
       }
     });
+
+    // Nudge player out if they ended up inside a table or NPC after world update
+    if (!this.isWalkable(this.player.tileX, this.player.tileY)) {
+      const p = this.player;
+      // Try adjacent tiles, then fall back to default spawn
+      const nudges = [{dx:0,dy:1},{dx:1,dy:0},{dx:0,dy:-1},{dx:-1,dy:0}];
+      let found = false;
+      for (const {dx, dy} of nudges) {
+        if (this.isWalkable(p.tileX + dx, p.tileY + dy)) {
+          p.tileX += dx; p.tileY += dy;
+          p.pixelX = p.tileX; p.pixelY = p.tileY;
+          p.targetX = p.tileX; p.targetY = p.tileY;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        p.tileX = 8; p.tileY = 10;
+        p.pixelX = 8; p.pixelY = 10;
+        p.targetX = 8; p.targetY = 10;
+      }
+      p.moving = false;
+    }
   }
 
   setupInput() {
@@ -266,6 +285,7 @@ export class GameEngine {
 
     // Click/tap interactions
     const handlePointer = (e) => {
+      if (this.inputPaused) return;
       const rect = this.canvas.getBoundingClientRect();
       const px = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left;
       const py = (e.clientY ?? e.touches?.[0]?.clientY) - rect.top;
@@ -623,6 +643,12 @@ export class GameEngine {
   stop() { this.running = false; }
 
   destroy() {
+    // Save player position so it survives engine recreation
+    _savedPlayerPos = {
+      tileX: this.player.tileX,
+      tileY: this.player.tileY,
+      direction: this.player.direction,
+    };
     this.running = false;
     this._clickTarget = null;
     this.keys = {};
