@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
+let _notifIdCounter = 0;
+
 export function useSocket() {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
@@ -39,7 +41,7 @@ export function useSocket() {
     socket.on('orchestrator:update', (data) => setOrchestratorQueue(data || []));
 
     socket.on('notification', (notif) => {
-      setNotifications(prev => [...prev.slice(-10), { ...notif, id: Date.now(), time: new Date() }]);
+      setNotifications(prev => [...prev.slice(-10), { ...notif, id: `notif-${Date.now()}-${++_notifIdCounter}`, time: new Date() }]);
 
       // Vibrate on mobile for input_needed
       if (notif.type === 'input_needed') {
@@ -125,9 +127,9 @@ export function useSocket() {
     });
   }, [apiCall]);
 
-  const deleteSession = useCallback(async (id) => {
-    await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
-  }, []);
+  const deleteSession = useCallback((id) => {
+    return apiCall(`/api/sessions/${id}`, { method: 'DELETE' });
+  }, [apiCall]);
 
   const attachTerminal = useCallback((sessionId) => {
     socketRef.current?.emit('terminal:attach', sessionId);
