@@ -28,6 +28,7 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 const store = new Store(path.join(__dirname, '..', 'data', 'store.json'));
 const terminalManager = new TerminalManager();
@@ -37,6 +38,7 @@ const gitMonitor = new GitMonitor();
 const aiOrchestrator = new AIOrchestrator({ terminalManager, gitMonitor, store });
 const worktreeManager = new WorktreeManager();
 const sessionSummaries = {};
+const waitingNotified = new Set(); // Track sessions that have already sent "needs input" this turn
 
 // Wire up StateDetector status change callback (needs aiOrchestrator + io)
 stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
@@ -52,6 +54,11 @@ stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
     }
   }
 
+  // Clear the waiting-notified flag only after the session has done real work
+  if (newStatus === 'working') {
+    waitingNotified.delete(sessionId);
+  }
+
   store.updateSession(sessionId, { status: newStatus });
   io.emit('sessions:updated', store.getSessions());
 
@@ -63,8 +70,9 @@ stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
     projectId: session.projectId,
   });
 
-  // Notify for waiting state (input needed)
-  if (newStatus === 'waiting') {
+  // Notify for waiting state (input needed) — only once per turn
+  if (newStatus === 'waiting' && !waitingNotified.has(sessionId)) {
+    waitingNotified.add(sessionId);
     const starterName = session.starter
       ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
       : session.name;
@@ -190,6 +198,7 @@ app.delete('/api/projects/:id', async (req, res) => {
     }
     stateDetector.remove(session.id);
     delete sessionSummaries[session.id];
+    waitingNotified.delete(session.id);
     orchestrator.remove(session.id);
     aiOrchestrator.remove(session.id);
     store.deleteSession(session.id);
@@ -245,6 +254,7 @@ app.delete('/api/sessions/:id', async (req, res) => {
   store.deleteSession(req.params.id);
   stateDetector.remove(req.params.id);
   delete sessionSummaries[req.params.id];
+  waitingNotified.delete(req.params.id);
   orchestrator.remove(req.params.id);
   aiOrchestrator.remove(req.params.id);
   io.emit('sessions:updated', store.getSessions());
@@ -477,6 +487,7 @@ io.on('connection', (socket) => {
 
             // Clean up state detector for this session
             stateDetector.remove(sessionId);
+            waitingNotified.delete(sessionId);
 
             const meta = {
               exitCode: code,
