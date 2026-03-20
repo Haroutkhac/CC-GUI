@@ -308,6 +308,8 @@ html, body, #root {
 .pkmn-arrow { font-size: 8px; color: #383838; opacity: 0; transition: opacity 0.05s; }
 .pkmn-menu-item:hover .pkmn-arrow { opacity: 1; }
 .pkmn-empty { font-size: 8px; color: #808080; padding: 16px 8px; line-height: 1.8; }
+.pkmn-confirm-body { font-size: 9px; color: #383838; line-height: 1.8; padding: 8px 0 4px; min-height: 40px; }
+.pkmn-overlay.pkmn-confirm-overlay { z-index: 200; }
 
 /* === DISCOVERY / PROJECT PICKER === */
 .discover-list {

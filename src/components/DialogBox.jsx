@@ -235,8 +235,39 @@ export function CreateSessionDialog({ projectId, projectName, onSubmit, onCancel
   );
 }
 
-export function TableContextMenu({ project, sessions, onCreateSession, onDeleteProject, onDeleteSession, onSelectSession, onClose }) {
+export function ConfirmDialog({ message, onConfirm, onCancel }) {
+  return (
+    <div className="pkmn-overlay pkmn-confirm-overlay" onClick={onCancel}>
+      <div className="pkmn-dialog" onClick={e => e.stopPropagation()}>
+        <div className="pkmn-dialog-inner">
+          <div className="pkmn-dialog-title">WAIT!</div>
+          <div className="pkmn-confirm-body">
+            <TypewriterText text={message} />
+          </div>
+          <div className="pkmn-menu-list">
+            <button className="pkmn-menu-item danger" onClick={onConfirm}>
+              <MenuArrow /> YES, DO IT
+            </button>
+            <button className="pkmn-menu-item" onClick={onCancel}>
+              <MenuArrow /> NO, GO BACK
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TableContextMenu({ project, sessions, onCreateSession, onDeleteProject, onDeleteSession, onSelectSession, onClose, onConfirm }) {
   const projectSessions = sessions.filter(s => s.projectId === project.id);
+
+  const confirmThen = (message, action) => {
+    if (onConfirm) {
+      onConfirm(message, action);
+    } else {
+      action();
+    }
+  };
 
   return (
     <div className="pkmn-overlay" onClick={onClose}>
@@ -266,7 +297,7 @@ export function TableContextMenu({ project, sessions, onCreateSession, onDeleteP
                     title={`Release ${s.starter}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm(`Release ${s.starter}?`)) onDeleteSession?.(s.id);
+                      confirmThen(`Release ${s.starter}? This can't be undone!`, () => onDeleteSession?.(s.id));
                     }}
                   >
                     ✕
@@ -281,7 +312,7 @@ export function TableContextMenu({ project, sessions, onCreateSession, onDeleteP
               <MenuArrow /> NEW SESSION
             </button>
             <button className="pkmn-menu-item danger" onClick={() => {
-              if (confirm('Release all Pokemon from this table?')) onDeleteProject(project.id);
+              confirmThen('Release all Pokemon from this table? This can\'t be undone!', () => onDeleteProject(project.id));
             }}>
               <MenuArrow /> DELETE TABLE
             </button>
