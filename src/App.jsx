@@ -240,6 +240,7 @@ export default function App() {
         onTableInteract={handleTableInteract}
         onDeleteTable={handleDeleteTable}
         onDismissNPC={handleDismissNPC}
+        onCreateAtTable={handleQuickCreate}
         inputPaused={!!activeTerminal || !!dialog || dashboardOpen || orchestratorOpen || !!carouselProject || !!confirmDialog}
       />
 
