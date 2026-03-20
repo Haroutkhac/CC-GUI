@@ -17,6 +17,25 @@ const RUG = 6;
 const DOORMAT = 7;
 const SIGN = 8;
 
+// Seating positions around a table (relative offsets from table tile)
+const SEAT_OFFSETS = [
+  // Ring 1: cardinal
+  { dx: 0, dy: 1, labelSide: 'below' },
+  { dx: 1, dy: 0, labelSide: 'right' },
+  { dx: -1, dy: 0, labelSide: 'left' },
+  { dx: 0, dy: -1, labelSide: 'above' },
+  // Ring 1: diagonal
+  { dx: 1, dy: 1, labelSide: 'below' },
+  { dx: -1, dy: 1, labelSide: 'below' },
+  { dx: 1, dy: -1, labelSide: 'above' },
+  { dx: -1, dy: -1, labelSide: 'above' },
+  // Ring 2: cardinal
+  { dx: 0, dy: 2, labelSide: 'below' },
+  { dx: 2, dy: 0, labelSide: 'right' },
+  { dx: -2, dy: 0, labelSide: 'left' },
+  { dx: 0, dy: -2, labelSide: 'above' },
+];
+
 export class GameEngine {
   constructor(canvas) {
     this.canvas = canvas;
@@ -124,8 +143,8 @@ export class GameEngine {
     this.map = this.generateBaseMap();
 
     const tablesPerRow = 3;
-    const tableSpacingX = 6;
-    const tableSpacingY = 5;
+    const tableSpacingX = 7;
+    const tableSpacingY = 7;
     const startX = 3;
     const startY = 5;
 
@@ -157,15 +176,11 @@ export class GameEngine {
 
         const projectSessions = this.sessions.filter(s => s.projectId === project.id);
         projectSessions.forEach((session, sIdx) => {
-          let nx, ny, labelSide;
-          // Seat Pokemon around the table like chairs
-          // labelSide tells renderer which side to put the name tag
-          switch (sIdx % 4) {
-            case 0: nx = tx; ny = ty + 1; labelSide = 'below'; break;     // below table
-            case 1: nx = tx + 1; ny = ty; labelSide = 'right'; break;     // right of table
-            case 2: nx = tx - 1; ny = ty; labelSide = 'left'; break;      // left of table
-            case 3: nx = tx; ny = ty - 1; labelSide = 'above'; break;     // above table (under project label)
-          }
+          // Seat Pokemon around the table using offset array
+          const seat = SEAT_OFFSETS[sIdx % SEAT_OFFSETS.length];
+          const nx = tx + seat.dx;
+          const ny = ty + seat.dy;
+          const labelSide = seat.labelSide;
           if (ny >= 3 && ny < this.mapHeight - 1 && nx >= 1 && nx < this.mapWidth - 1) {
             this.npcPositions.push({
               sessionId: session.id,
@@ -210,12 +225,22 @@ export class GameEngine {
       this.keys[e.key] = true;
 
       // Interaction keys
-      if (e.key === 'Enter' || e.key === ' ' || e.key === 'z') {
+      // Enter/Z: NPC priority, fallback to table
+      if (e.key === 'Enter' || e.key === 'z') {
         e.preventDefault();
         if (this.nearbyNPC) {
           this.onInteract?.(this.nearbyNPC.sessionId);
         } else if (this.nearbyTable) {
           this.onTableInteract?.(this.nearbyTable.projectId);
+        }
+      }
+      // Space: table priority (so you can open the table even when surrounded by NPCs)
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (this.nearbyTable) {
+          this.onTableInteract?.(this.nearbyTable.projectId);
+        } else if (this.nearbyNPC) {
+          this.onInteract?.(this.nearbyNPC.sessionId);
         }
       }
 
@@ -385,7 +410,9 @@ export class GameEngine {
         this.nearbyTable = table;
         break;
       }
-      if (!this.nearbyTable && Math.abs(table.x - p.tileX) + Math.abs(table.y - p.tileY) <= 1) {
+      // Detect tables within 2 tiles so the player can interact even when
+      // all adjacent seats are occupied by Pokemon
+      if (!this.nearbyTable && Math.abs(table.x - p.tileX) + Math.abs(table.y - p.tileY) <= 2) {
         this.nearbyTable = table;
       }
     }
@@ -514,10 +541,12 @@ export class GameEngine {
     ctx.restore();
 
     // Interaction prompt (Pokemon-style bottom bar)
-    if (this.nearbyNPC) {
+    if (this.nearbyNPC && this.nearbyTable) {
+      this.drawPromptBox(`ENTER talk  |  SPACE table  |  X release  ${this.nearbyNPC.name}`);
+    } else if (this.nearbyNPC) {
       this.drawPromptBox(`ENTER talk  |  X release  ${this.nearbyNPC.name}`);
-    } else if (this.nearbyTable && !this.nearbyNPC) {
-      this.drawPromptBox(`Press ENTER for ${this.nearbyTable.name}`);
+    } else if (this.nearbyTable) {
+      this.drawPromptBox(`ENTER / SPACE for ${this.nearbyTable.name}`);
     }
   }
 
