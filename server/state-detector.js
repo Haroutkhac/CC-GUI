@@ -52,12 +52,14 @@ export class StateDetector {
   ingest(sessionId, rawData) {
     this.ptyLogger.log(sessionId, rawData);
 
-    // Update buffer
+    // Update buffer and invalidate clean cache
     if (!this.statusBuffers[sessionId]) this.statusBuffers[sessionId] = '';
     this.statusBuffers[sessionId] += rawData;
     if (this.statusBuffers[sessionId].length > STATUS_BUFFER_LIMIT) {
       this.statusBuffers[sessionId] = this.statusBuffers[sessionId].slice(-STATUS_BUFFER_LIMIT);
     }
+    const state = this._getSession(sessionId);
+    state._cleanCache = null;
 
     this._detectFromPty(sessionId, rawData);
   }
@@ -93,6 +95,7 @@ export class StateDetector {
 
     // 3. Prompt detection on cleaned buffer (increased to 400 chars)
     const clean = stripAnsi(buf);
+    state._cleanCache = clean; // cache for getCleanBuffer/getCleanTail reuse
     const tail = clean.slice(-400);
 
     // Waiting patterns — prompt at end of output
@@ -162,18 +165,20 @@ export class StateDetector {
     return state?.granularState || state?.ptyState || 'idle';
   }
 
-  // Get cleaned tail text for prompt analysis (used by auto-respond)
-  getCleanTail(sessionId) {
+  // Get full cleaned buffer (cached — avoids redundant stripAnsi calls)
+  getCleanBuffer(sessionId) {
+    const state = this.sessions.get(sessionId);
+    if (state?._cleanCache) return state._cleanCache;
     const buf = this.statusBuffers[sessionId];
     if (!buf) return '';
-    return stripAnsi(buf).slice(-400);
+    const clean = stripAnsi(buf);
+    if (state) state._cleanCache = clean;
+    return clean;
   }
 
-  // Get full cleaned buffer for summary extraction
-  getCleanBuffer(sessionId) {
-    const buf = this.statusBuffers[sessionId];
-    if (!buf) return '';
-    return stripAnsi(buf);
+  // Get cleaned tail text for prompt analysis (used by auto-respond)
+  getCleanTail(sessionId) {
+    return this.getCleanBuffer(sessionId).slice(-400);
   }
 
   // Clean up a session
