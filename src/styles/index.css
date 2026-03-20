@@ -681,6 +681,7 @@ html, body, #root {
 
 /* === RESPONSIVE === */
 @media (max-width: 600px) {
+  .pkmn-hud { flex-wrap: wrap; gap: 4px; }
   .pkmn-hud-left { padding: 6px 8px; }
   .pkmn-hud-title { font-size: 8px; }
   .pkmn-hud-stats { font-size: 6px; }
@@ -692,4 +693,16 @@ html, body, #root {
   .fab-team { bottom: 150px; right: 8px; font-size: 7px; padding: 10px 12px; }
   .dash-panel { max-width: 100%; }
   .carousel-card { min-width: 90%; max-width: 90%; margin: 0 5%; }
+}
+@media (max-width: 360px) {
+  .pkmn-hud { padding: 4px 6px; }
+  .pkmn-hud-left { padding: 4px 6px; flex-shrink: 1; min-width: 0; }
+  .pkmn-hud-title { font-size: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pkmn-hud-stats { font-size: 5px; }
+  .pkmn-hud-right { flex-shrink: 0; }
+  .pkmn-hud-btn { font-size: 0; padding: 6px 8px; }
+  .pkmn-hud-btn .hud-kbd { font-size: 7px; margin-left: 0; }
+  .pkmn-hud-status { font-size: 5px; padding: 2px 5px; }
+  .pkmn-hud-btns { gap: 2px; }
+  .key-hint-btn { font-size: 7px !important; padding: 6px 8px; }
 }

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { GameEngine } from '../game/engine.js';
 
-export default function GameCanvas({ projects, sessions, onNPCInteract, onTableInteract, onDismissNPC }) {
+export default function GameCanvas({ projects, sessions, onNPCInteract, onTableInteract, onDismissNPC, inputPaused }) {
   const canvasRef = useRef(null);
   const engineRef = useRef(null);
 
@@ -63,6 +63,18 @@ export default function GameCanvas({ projects, sessions, onNPCInteract, onTableI
       engineRef.current.updateWorld(projects, sessions);
     }
   }, [projects, sessions]);
+
+  // Pause input when overlays are open
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.inputPaused = !!inputPaused;
+      if (inputPaused) {
+        // Clear held keys and click target when pausing
+        engineRef.current.keys = {};
+        engineRef.current._clickTarget = null;
+      }
+    }
+  }, [inputPaused]);
 
   return (
     <canvas

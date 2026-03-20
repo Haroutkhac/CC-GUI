@@ -58,13 +58,17 @@ export default function App() {
     if (sessionId) openTerminal(sessionId);
   }, [openTerminal]);
 
+  const [dialogError, setDialogError] = useState(null);
+
   const handleCreateProject = useCallback(async (name, path) => {
     try {
+      setDialogError(null);
       await createProject(name, path);
       setDialog(null);
       setDialogData(null);
     } catch (err) {
       console.error('Failed to create project:', err);
+      setDialogError(err.message || 'Failed to create project');
     }
   }, [createProject]);
 
@@ -126,13 +130,18 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (activeTerminal) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (dialog || dashboardOpen || carouselProject) return;
+
+      // K toggles command center regardless of other overlays
+      if (e.key === 'k') {
+        e.preventDefault();
+        setOrchestratorOpen(prev => !prev);
+        return;
+      }
+
+      // Block other shortcuts when any overlay is open
+      if (dialog || dashboardOpen || carouselProject || orchestratorOpen) return;
 
       switch (e.key) {
-        case 'k': // Command center
-          e.preventDefault();
-          setOrchestratorOpen(prev => !prev);
-          break;
         case 'n': // New project
           e.preventDefault();
           setDialog('createProject');
@@ -176,6 +185,7 @@ export default function App() {
         onNPCInteract={handleNPCInteract}
         onTableInteract={handleTableInteract}
         onDismissNPC={handleDismissNPC}
+        inputPaused={!!activeTerminal || !!dialog || dashboardOpen || orchestratorOpen || !!carouselProject}
       />
 
       <HUD
@@ -262,7 +272,8 @@ export default function App() {
       {dialog === 'createProject' && (
         <CreateProjectDialog
           onSubmit={handleCreateProject}
-          onCancel={() => { setDialog(null); setDialogData(null); }}
+          onCancel={() => { setDialog(null); setDialogData(null); setDialogError(null); }}
+          serverError={dialogError}
         />
       )}
       {dialog === 'createSession' && dialogData && (

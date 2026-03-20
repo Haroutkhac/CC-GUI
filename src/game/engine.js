@@ -59,6 +59,9 @@ export class GameEngine {
     this.onTableInteract = null;
     this.onDismissNPC = null;
 
+    // Pause input when overlays are open
+    this.inputPaused = false;
+
     // Animation
     this.lastTime = performance.now();
     this.running = true;
@@ -197,8 +200,8 @@ export class GameEngine {
     };
 
     const handleKeyDown = (e) => {
-      // Don't capture keys when typing in form inputs
-      if (isTyping()) return;
+      // Don't capture keys when typing in form inputs or when overlays are open
+      if (isTyping() || this.inputPaused) return;
 
       if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D'].includes(e.key)) {
         e.preventDefault();
@@ -361,13 +364,14 @@ export class GameEngine {
     const facingX = p.tileX + (p.direction === 'left' ? -1 : p.direction === 'right' ? 1 : 0);
     const facingY = p.tileY + (p.direction === 'up' ? -1 : p.direction === 'down' ? 1 : 0);
 
+    // Facing NPC takes priority; fallback to first adjacent NPC
     for (const npc of this.npcPositions) {
       if (npc.x === facingX && npc.y === facingY) {
         this.nearbyNPC = npc;
         break;
       }
-      // Also check adjacent
-      if (Math.abs(npc.x - p.tileX) + Math.abs(npc.y - p.tileY) <= 1) {
+      // First adjacent NPC found is the fallback (don't overwrite)
+      if (!this.nearbyNPC && Math.abs(npc.x - p.tileX) + Math.abs(npc.y - p.tileY) <= 1) {
         this.nearbyNPC = npc;
       }
     }
@@ -377,7 +381,7 @@ export class GameEngine {
         this.nearbyTable = table;
         break;
       }
-      if (Math.abs(table.x - p.tileX) + Math.abs(table.y - p.tileY) <= 1) {
+      if (!this.nearbyTable && Math.abs(table.x - p.tileX) + Math.abs(table.y - p.tileY) <= 1) {
         this.nearbyTable = table;
       }
     }
@@ -555,8 +559,8 @@ export class GameEngine {
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    this.canvas.width = rect.width;
-    this.canvas.height = rect.height;
+    this.canvas.width = rect.width || window.innerWidth;
+    this.canvas.height = rect.height || window.innerHeight;
 
     if (rect.width < 600) {
       this.scale = 2;
@@ -575,8 +579,12 @@ export class GameEngine {
 
   start() {
     this.running = true;
-    this.resize();
-    requestAnimationFrame(this.loop);
+    // Defer initial resize to next frame so the browser has computed layout
+    // (prevents 0x0 canvas on cold first visit before CSS/fonts are cached)
+    requestAnimationFrame(() => {
+      this.resize();
+      requestAnimationFrame(this.loop);
+    });
   }
 
   stop() { this.running = false; }

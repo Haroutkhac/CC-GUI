@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+function ValidationError({ message }) {
+  if (!message) return null;
+  return <div style={{ fontSize: '7px', color: '#C04040', marginTop: '4px' }}>{message}</div>;
+}
+
 // Pokemon-style typewriter text
 function TypewriterText({ text, speed = 30 }) {
   const [displayed, setDisplayed] = useState('');
@@ -26,7 +31,7 @@ function MenuArrow() {
   return <span className="pkmn-arrow">{'\u25B6'}</span>;
 }
 
-export function CreateProjectDialog({ onSubmit, onCancel }) {
+export function CreateProjectDialog({ onSubmit, onCancel, serverError }) {
   const [mode, setMode] = useState('pick'); // 'pick' or 'manual'
   const [name, setName] = useState('');
   const [path, setPath] = useState('');
@@ -57,21 +62,31 @@ export function CreateProjectDialog({ onSubmit, onCancel }) {
     }
   };
 
+  const [validationError, setValidationError] = useState('');
+
   if (mode === 'manual') {
     return (
       <div className="pkmn-overlay" onClick={onCancel}>
         <div className="pkmn-dialog" onClick={e => e.stopPropagation()}>
           <div className="pkmn-dialog-inner">
             <div className="pkmn-dialog-title">NEW PROJECT</div>
-            <form onSubmit={e => { e.preventDefault(); if (name && path) onSubmit(name, path); }}>
+            <form onSubmit={e => {
+              e.preventDefault();
+              if (!name && !path) { setValidationError('Name and path are required'); return; }
+              if (!name) { setValidationError('Name is required'); return; }
+              if (!path) { setValidationError('Path is required'); return; }
+              setValidationError('');
+              onSubmit(name, path);
+            }}>
               <div className="pkmn-field">
                 <label>NAME</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="My Project" autoFocus />
+                <input type="text" value={name} onChange={e => { setName(e.target.value); setValidationError(''); }} placeholder="My Project" autoFocus />
               </div>
               <div className="pkmn-field">
                 <label>PATH</label>
-                <input type="text" value={path} onChange={e => setPath(e.target.value)} placeholder="/Users/you/project" />
+                <input type="text" value={path} onChange={e => { setPath(e.target.value); setValidationError(''); }} placeholder="/Users/you/project" />
               </div>
+              <ValidationError message={validationError || serverError} />
               <div className="pkmn-menu-list">
                 <button type="submit" className="pkmn-menu-item">
                   <MenuArrow /> CREATE

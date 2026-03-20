@@ -242,14 +242,16 @@ io.on('connection', (socket) => {
             });
           },
           onExit: (code) => {
+            const sess = store.getSession(sessionId);
+            // Session may have been deleted before exit fired — skip if gone
+            if (!sess) return;
             store.updateSession(sessionId, { status: 'exited', exitCode: code });
             io.to(`session:${sessionId}`).emit('terminal:exit', { sessionId, code });
             io.emit('sessions:updated', store.getSessions());
-            const sess = store.getSession(sessionId);
             orchestrator.onStatusChange(sessionId, 'exited', {
               exitCode: code,
-              sessionName: sess?.name,
-              projectId: sess?.projectId,
+              sessionName: sess.name,
+              projectId: sess.projectId,
             });
           },
         });

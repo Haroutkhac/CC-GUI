@@ -81,7 +81,9 @@ export default function OrchestratorPanel({ queue, sessions, projects, onSelectS
         <div className="orch-body">
           {enriched.length === 0 ? (
             <div className="orch-empty">
-              No active sessions yet. Create a project and session to get started.
+              {sessions.length === 0
+                ? 'No active sessions yet. Create a project and session to get started.'
+                : 'All sessions are being monitored. No actions needed right now.'}
             </div>
           ) : (
             enriched.map(item => (
