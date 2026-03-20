@@ -33,6 +33,14 @@ const worktreeManager = new WorktreeManager();
 const statusBuffers = {};
 const sessionSummaries = {};
 
+// On server startup, reset sessions that claim to be running but have no pty
+// (happens after server crash/restart — ptys are in-memory only)
+for (const session of store.getSessions()) {
+  if (session.status === 'active' || session.status === 'working' || session.status === 'waiting') {
+    store.updateSession(session.id, { status: 'idle' });
+  }
+}
+
 // Broadcast orchestrator state whenever priorities change
 orchestrator.onChange = () => {
   io.emit('orchestrator:update', orchestrator.getRanked());
