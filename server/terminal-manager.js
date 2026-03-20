@@ -7,6 +7,7 @@ const shell = os.platform() === 'win32' ? 'powershell.exe' : process.env.SHELL |
 export class TerminalManager {
   constructor() {
     this.terminals = new Map(); // sessionId -> { pty, scrollback }
+    this.deadScrollback = new Map(); // sessionId -> scrollback (preserved after exit)
   }
 
   create(sessionId, command, args = [], options = {}) {
@@ -46,6 +47,13 @@ export class TerminalManager {
     });
 
     ptyProcess.onExit(({ exitCode }) => {
+      // Preserve scrollback so re-attaching shows previous output
+      this.deadScrollback.set(sessionId, entry.scrollback);
+      // Cap dead scrollback entries to prevent unbounded memory growth
+      if (this.deadScrollback.size > 50) {
+        const oldest = this.deadScrollback.keys().next().value;
+        this.deadScrollback.delete(oldest);
+      }
       this.terminals.delete(sessionId);
       if (onExit) onExit(exitCode);
     });
@@ -78,7 +86,8 @@ export class TerminalManager {
 
   getScrollback(sessionId) {
     const entry = this.terminals.get(sessionId);
-    return entry ? entry.scrollback : null;
+    if (entry) return entry.scrollback;
+    return this.deadScrollback.get(sessionId) || null;
   }
 
   kill(sessionId) {
@@ -91,6 +100,7 @@ export class TerminalManager {
       }
       this.terminals.delete(sessionId);
     }
+    this.deadScrollback.delete(sessionId);
   }
 
   killAll() {
