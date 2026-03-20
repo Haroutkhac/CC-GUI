@@ -34,6 +34,10 @@ const aiOrchestrator = new AIOrchestrator({ terminalManager });
 const worktreeManager = new WorktreeManager();
 const statusBuffers = {};
 const sessionSummaries = {};
+const lastNotifiedAt = {};   // sessionId -> timestamp, for notification deduplication
+const idleTimers = {};       // sessionId -> setTimeout handle
+const NOTIFY_COOLDOWN_MS = 10000; // don't re-notify same session within 10s
+const IDLE_DELAY_MS = 3000;  // wait 3s of silence before evaluating status
 
 // On server startup, reset sessions that claim to be running but have no pty
 // (happens after server crash/restart — ptys are in-memory only)
@@ -106,8 +110,11 @@ app.delete('/api/projects/:id', async (req, res) => {
       await worktreeManager.remove(project.path, session.worktreePath);
       await worktreeManager.removeBranch(project.path, session.branch);
     }
+    clearTimeout(idleTimers[session.id]);
+    delete idleTimers[session.id];
     delete statusBuffers[session.id];
     delete sessionSummaries[session.id];
+    delete lastNotifiedAt[session.id];
     orchestrator.remove(session.id);
     aiOrchestrator.remove(session.id);
     store.deleteSession(session.id);
@@ -161,8 +168,11 @@ app.delete('/api/sessions/:id', async (req, res) => {
   }
 
   store.deleteSession(req.params.id);
+  clearTimeout(idleTimers[req.params.id]);
+  delete idleTimers[req.params.id];
   delete statusBuffers[req.params.id];
   delete sessionSummaries[req.params.id];
+  delete lastNotifiedAt[req.params.id];
   orchestrator.remove(req.params.id);
   aiOrchestrator.remove(req.params.id);
   io.emit('sessions:updated', store.getSessions());
@@ -410,7 +420,9 @@ io.on('connection', (socket) => {
 
 // Session summaries (last meaningful output line per session)
 
-// Status detection
+// Status detection — idle-based approach
+// Buffer data immediately, but only evaluate status after output goes quiet for IDLE_DELAY_MS.
+// This prevents rapid status flipping from mid-stream pattern matches.
 function detectStatus(sessionId, data) {
   if (!statusBuffers[sessionId]) statusBuffers[sessionId] = '';
   statusBuffers[sessionId] += data;
@@ -419,35 +431,59 @@ function detectStatus(sessionId, data) {
     statusBuffers[sessionId] = statusBuffers[sessionId].slice(-STATUS_BUFFER_LIMIT);
   }
 
-  const buf = statusBuffers[sessionId];
-  const clean = stripAnsi(buf);
+  // While output is streaming, mark as working immediately (no delay needed for this direction)
   const session = store.getSession(sessionId);
   if (!session) {
-    delete statusBuffers[sessionId]; // cleanup orphaned buffer
+    delete statusBuffers[sessionId];
     return;
   }
+  if (session.status !== 'working' && session.status !== 'exited') {
+    store.updateSession(sessionId, { status: 'working' });
+    io.emit('sessions:updated', store.getSessions());
+  }
 
-  let newStatus = session.status;
+  // Update summaries eagerly (these are informational, no notification attached)
+  const cleanForSummary = stripAnsi(statusBuffers[sessionId]);
+  const summaryLines = cleanForSummary.split('\n').filter(l => l.trim().length > 0);
+  const summaryLine = summaryLines.length > 0 ? summaryLines[summaryLines.length - 1].slice(0, 120) : '';
+  if (summaryLine && sessionSummaries[sessionId] !== summaryLine) {
+    sessionSummaries[sessionId] = summaryLine;
+    io.emit('sessions:summaries', sessionSummaries);
+  }
 
-  // Check the tail of the cleaned buffer for prompt patterns
+  // Reset the idle timer — evaluate status only after output stops
+  clearTimeout(idleTimers[sessionId]);
+  idleTimers[sessionId] = setTimeout(() => evaluateStatus(sessionId), IDLE_DELAY_MS);
+}
+
+// Called after IDLE_DELAY_MS of silence — output has settled, now classify the state
+function evaluateStatus(sessionId) {
+  const buf = statusBuffers[sessionId];
+  if (!buf) return;
+
+  const clean = stripAnsi(buf);
+  const session = store.getSession(sessionId);
+  if (!session || session.status === 'exited') return;
+
   const tail = clean.slice(-200);
+  const tailLines = tail.split('\n').filter(l => l.trim());
+  const lastLine = (tailLines[tailLines.length - 1] || '').trim();
 
-  // Claude Code waiting for input: ">" or "❯" prompt at end, or "?" for confirmations
-  if (/(?:^|\n)\s*>\s*$/.test(tail) || /❯\s*$/.test(tail) || /\?\s*$/.test(tail) || /\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail)) {
-    // Check auto-respond for Y/n prompts BEFORE setting waiting status
+  let newStatus = 'active';
+
+  // Y/n confirmation prompts — check auto-respond before setting waiting
+  if (/\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail)) {
     if (/\(Y\/n\)\s*$/i.test(tail)) {
       const autoResponded = aiOrchestrator.checkAutoRespond(sessionId, tail);
-      if (autoResponded) {
-        // Don't set waiting — we already responded
-        return;
-      }
+      if (autoResponded) return;
     }
     newStatus = 'waiting';
-  } else if (/(Thinking|Working|Running|Executing|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i.test(tail)) {
-    newStatus = 'working';
-  } else if (session.status === 'waiting' || session.status === 'working') {
-    // Terminal output no longer matches waiting/working patterns — session has moved on
-    newStatus = 'active';
+  // Bare prompt character as only content on last line
+  } else if (/^\s*>\s*$/.test(lastLine) || /^\s*❯\s*$/.test(lastLine)) {
+    newStatus = 'waiting';
+  // Permission / approval prompts
+  } else if (/Do you want to proceed|Allow .* to |Approve.*Deny|Would you like to/i.test(tailLines.slice(-2).join('\n'))) {
+    newStatus = 'waiting';
   }
 
   if (newStatus !== session.status) {
@@ -462,26 +498,23 @@ function detectStatus(sessionId, data) {
       projectId: session.projectId,
     });
 
-    // Only notify for waiting state (input needed)
+    // Notify for waiting state, with cooldown to prevent duplicates
     if (newStatus === 'waiting') {
-      const starterName = session.starter
-        ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
-        : session.name;
-      io.emit('notification', {
-        sessionId,
-        type: 'input_needed',
-        message: `${starterName} needs your input!`,
-        projectId: session.projectId,
-      });
+      const now = Date.now();
+      const lastNotif = lastNotifiedAt[sessionId] || 0;
+      if (now - lastNotif >= NOTIFY_COOLDOWN_MS) {
+        lastNotifiedAt[sessionId] = now;
+        const starterName = session.starter
+          ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+          : session.name;
+        io.emit('notification', {
+          sessionId,
+          type: 'input_needed',
+          message: `${starterName} needs your input!`,
+          projectId: session.projectId,
+        });
+      }
     }
-  }
-
-  // Extract last meaningful line for summaries
-  const lines = clean.split('\n').filter(l => l.trim().length > 0);
-  const lastLine = lines.length > 0 ? lines[lines.length - 1].slice(0, 120) : '';
-  if (lastLine && sessionSummaries[sessionId] !== lastLine) {
-    sessionSummaries[sessionId] = lastLine;
-    io.emit('sessions:summaries', sessionSummaries);
   }
 }
 
@@ -513,7 +546,11 @@ function shutdown(signal) {
     clearTimeout(aiOrchestrator._timer);
     aiOrchestrator._timer = null;
   }
-  // Clean up status buffers
+  // Clean up timers and buffers
+  for (const key of Object.keys(idleTimers)) {
+    clearTimeout(idleTimers[key]);
+    delete idleTimers[key];
+  }
   for (const key of Object.keys(statusBuffers)) {
     delete statusBuffers[key];
   }

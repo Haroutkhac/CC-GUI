@@ -67,11 +67,17 @@ export class Orchestrator {
   // Analyze the cleaned terminal output and determine priority/action
   _analyze(tail, meta) {
     const lastLines = tail.split('\n').filter(l => l.trim()).slice(-8);
+    const lastLine = (lastLines[lastLines.length - 1] || '').trim();
+    const lastTwoLines = lastLines.slice(-2).join('\n');
     const context = lastLines.slice(-3).join('\n').slice(0, 300);
+
+    // Check if output ends with active work indicators (used as a guard below)
+    const WORK_PATTERN = /(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i;
+    const endsWithWork = WORK_PATTERN.test(lastTwoLines);
 
     // --- CRITICAL: Permission / confirmation prompts ---
     if (/\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail)) {
-      const promptLine = lastLines.find(l => /Y\/n|y\/N/i.test(l)) || lastLines[lastLines.length - 1] || '';
+      const promptLine = lastLines.find(l => /Y\/n|y\/N/i.test(l)) || lastLine;
       return {
         priority: PRIORITY.CRITICAL,
         label: PRIORITY_LABELS[PRIORITY.CRITICAL],
@@ -82,8 +88,8 @@ export class Orchestrator {
       };
     }
 
-    if (/Do you want to proceed|Allow .* to |Approve.*Deny|Would you like to/i.test(tail.slice(-400))) {
-      const promptLine = lastLines.find(l => /proceed|Allow|Approve|Deny|Would you like/i.test(l)) || lastLines[lastLines.length - 1] || '';
+    if (/Do you want to proceed|Allow .* to |Approve.*Deny|Would you like to/i.test(lastTwoLines)) {
+      const promptLine = lastLines.find(l => /proceed|Allow|Approve|Deny|Would you like/i.test(l)) || lastLine;
       return {
         priority: PRIORITY.CRITICAL,
         label: PRIORITY_LABELS[PRIORITY.CRITICAL],
@@ -94,8 +100,8 @@ export class Orchestrator {
       };
     }
 
-    // --- HIGH: Waiting for user input (prompt at end) ---
-    if (/(?:^|\n)\s*>\s*$/.test(tail) || /❯\s*$/.test(tail)) {
+    // --- HIGH: Waiting for user input (bare prompt character on its own line at the end) ---
+    if (/^\s*>\s*$/.test(lastLine) || /^\s*❯\s*$/.test(lastLine)) {
       return {
         priority: PRIORITY.HIGH,
         label: PRIORITY_LABELS[PRIORITY.HIGH],
@@ -106,21 +112,23 @@ export class Orchestrator {
       };
     }
 
-    // --- HIGH: Error detected ---
-    const errorMatch = tail.slice(-400).match(/(Error|Failed|ENOENT|EACCES|Permission denied|Command failed|panic|FATAL)[:\s](.{0,100})/i);
-    if (errorMatch) {
-      return {
-        priority: PRIORITY.HIGH,
-        label: PRIORITY_LABELS[PRIORITY.HIGH],
-        reason: 'Error detected',
-        action: 'Investigate error',
-        actionHint: 'error',
-        context: errorMatch[0].slice(0, 200),
-      };
+    // --- HIGH: Error detected (only on the last 2 lines, and only if not still working) ---
+    if (!endsWithWork) {
+      const errorMatch = lastTwoLines.match(/(Error|Failed|ENOENT|EACCES|Permission denied|Command failed|panic|FATAL)[:\s](.{0,100})/i);
+      if (errorMatch) {
+        return {
+          priority: PRIORITY.HIGH,
+          label: PRIORITY_LABELS[PRIORITY.HIGH],
+          reason: 'Error detected',
+          action: 'Investigate error',
+          actionHint: 'error',
+          context: errorMatch[0].slice(0, 200),
+        };
+      }
     }
 
-    // --- MEDIUM: Task completed ---
-    if (/✓|✔|Done[.!]|Successfully|Completed|finished/i.test(tail.slice(-300))) {
+    // --- MEDIUM: Task completed (only if completion signal is on the last 2 lines and not still working) ---
+    if (!endsWithWork && /✓|✔|Done[.!]|Successfully|Completed|finished/i.test(lastTwoLines)) {
       return {
         priority: PRIORITY.MEDIUM,
         label: PRIORITY_LABELS[PRIORITY.MEDIUM],
@@ -132,8 +140,8 @@ export class Orchestrator {
     }
 
     // --- LOW: Actively working ---
-    if (/(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i.test(tail.slice(-300))) {
-      const workMatch = tail.slice(-300).match(/(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)[^\n]*/i);
+    if (WORK_PATTERN.test(tail.slice(-300))) {
+      const workMatch = tail.slice(-300).match(new RegExp(WORK_PATTERN.source + '[^\\n]*', 'i'));
       return {
         priority: PRIORITY.LOW,
         label: PRIORITY_LABELS[PRIORITY.LOW],

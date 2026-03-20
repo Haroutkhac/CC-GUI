@@ -227,38 +227,73 @@ function drawTotodile(ctx, x, y, s) {
 }
 
 function drawTreecko(ctx, x, y, s) {
+  // Head crest (dark green ridge on top)
+  ctx.fillStyle = '#2D8C3C';
+  ctx.fillRect(x+5*s, y-1*s, 6*s, 2*s);
+  ctx.fillRect(x+6*s, y-2*s, 4*s, 2*s);
   // Head
-  ctx.fillStyle = '#58B858';
+  ctx.fillStyle = '#5CC85C';
   ctx.fillRect(x+3*s, y+0*s, 10*s, 7*s);
   ctx.fillRect(x+2*s, y+1*s, 12*s, 5*s);
-  // Eyes
+  // Head highlight
+  ctx.fillStyle = '#6ED86E';
+  ctx.fillRect(x+4*s, y+0*s, 4*s, 1*s);
+  // Eyes (large yellow with slit pupils)
   ctx.fillStyle = '#F8D830';
-  ctx.fillRect(x+4*s, y+2*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+2*s, 3*s, 3*s);
+  ctx.fillRect(x+3*s, y+2*s, 4*s, 3*s);
+  ctx.fillRect(x+9*s, y+2*s, 4*s, 3*s);
+  ctx.fillStyle = '#E8C020';
+  ctx.fillRect(x+3*s, y+4*s, 4*s, 1*s);
+  ctx.fillRect(x+9*s, y+4*s, 4*s, 1*s);
+  // Pupils (vertical slits)
   ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+10*s, y+3*s, 2*s, 2*s);
-  // Mouth
-  ctx.fillStyle = '#388838';
+  ctx.fillRect(x+5*s, y+2*s, 1*s, 3*s);
+  ctx.fillRect(x+11*s, y+2*s, 1*s, 3*s);
+  // Eye shine
+  ctx.fillStyle = '#FFF';
+  ctx.fillRect(x+4*s, y+2*s, 1*s, 1*s);
+  ctx.fillRect(x+10*s, y+2*s, 1*s, 1*s);
+  // Mouth/jaw line
+  ctx.fillStyle = '#3A9A3A';
+  ctx.fillRect(x+5*s, y+6*s, 6*s, 1*s);
+  // Lip (small red line)
+  ctx.fillStyle = '#C84040';
   ctx.fillRect(x+6*s, y+6*s, 4*s, 1*s);
   // Body
-  ctx.fillStyle = '#58B858';
+  ctx.fillStyle = '#5CC85C';
   ctx.fillRect(x+4*s, y+7*s, 8*s, 5*s);
-  // Belly
-  ctx.fillStyle = '#C04040';
-  ctx.fillRect(x+5*s, y+8*s, 6*s, 3*s);
+  ctx.fillRect(x+5*s, y+6*s, 6*s, 7*s);
+  // Belly (red/dark red)
+  ctx.fillStyle = '#C84040';
+  ctx.fillRect(x+6*s, y+8*s, 4*s, 3*s);
+  ctx.fillStyle = '#B03030';
+  ctx.fillRect(x+6*s, y+10*s, 4*s, 1*s);
   // Arms
-  ctx.fillStyle = '#58B858';
-  ctx.fillRect(x+2*s, y+7*s, 2*s, 3*s);
-  ctx.fillRect(x+12*s, y+7*s, 2*s, 3*s);
-  // Tail (big)
-  ctx.fillStyle = '#48A048';
-  ctx.fillRect(x+12*s, y+5*s, 4*s, 5*s);
+  ctx.fillStyle = '#5CC85C';
+  ctx.fillRect(x+2*s, y+7*s, 3*s, 2*s);
+  ctx.fillRect(x+11*s, y+7*s, 3*s, 2*s);
+  // Hands/fingers
+  ctx.fillStyle = '#48B048';
+  ctx.fillRect(x+1*s, y+9*s, 3*s, 1*s);
+  ctx.fillRect(x+12*s, y+9*s, 3*s, 1*s);
+  // Tail (large, distinctive)
+  ctx.fillStyle = '#48B048';
+  ctx.fillRect(x+12*s, y+5*s, 3*s, 5*s);
   ctx.fillRect(x+13*s, y+3*s, 3*s, 4*s);
+  ctx.fillStyle = '#3A9A3A';
+  ctx.fillRect(x+14*s, y+2*s, 2*s, 3*s);
+  ctx.fillRect(x+15*s, y+1*s, 1*s, 3*s);
+  // Tail highlight
+  ctx.fillStyle = '#5CC85C';
+  ctx.fillRect(x+12*s, y+5*s, 1*s, 3*s);
   // Legs
-  ctx.fillStyle = '#58B858';
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
+  ctx.fillStyle = '#5CC85C';
+  ctx.fillRect(x+4*s, y+12*s, 3*s, 2*s);
+  ctx.fillRect(x+9*s, y+12*s, 3*s, 2*s);
+  // Toes
+  ctx.fillStyle = '#48B048';
+  ctx.fillRect(x+3*s, y+14*s, 4*s, 1*s);
+  ctx.fillRect(x+9*s, y+14*s, 4*s, 1*s);
 }
 
 function drawTorchic(ctx, x, y, s) {
