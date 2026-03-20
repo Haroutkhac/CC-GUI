@@ -565,7 +565,7 @@ export class GameEngine {
       }
     }
 
-    // Project name labels above tables
+    // Project name labels below rugs
     if (this.tablePositions.length > 0) {
       const fontSize = 5 * s;
       const pad = 3 * s;
@@ -585,7 +585,8 @@ export class GameEngine {
         const px = table.x * tileSize;
         const py = table.y * tileSize;
         const cx = px + tileSize / 2;
-        const cy = py - 8 * s;
+        // Centered on the table tile
+        const cy = py + tileSize / 2;
         ctx.fillStyle = 'rgba(56, 56, 56, 0.85)';
         ctx.fillRect(Math.round(cx - lw / 2), Math.round(cy - lh / 2), Math.round(lw), Math.round(lh));
         ctx.fillStyle = '#F8F8F0';

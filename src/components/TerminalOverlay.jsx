@@ -80,6 +80,39 @@ export default function TerminalOverlay({
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
+    // Cmd/Ctrl shortcuts: select all, copy, paste, clear
+    term.attachCustomKeyEventHandler((e) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod || e.type !== 'keydown') return true;
+
+      switch (e.key) {
+        case 'a': // Select all
+          e.preventDefault();
+          term.selectAll();
+          return false;
+        case 'c': // Copy selection (fall through to default if no selection)
+          if (term.hasSelection()) {
+            e.preventDefault();
+            navigator.clipboard.writeText(term.getSelection()).catch(() => {});
+            term.clearSelection();
+            return false;
+          }
+          return true; // let Ctrl+C send SIGINT when nothing is selected
+        case 'v': // Paste
+          e.preventDefault();
+          navigator.clipboard.readText().then((text) => {
+            if (text && !disposed) sendInput(sessionId, text);
+          }).catch(() => {});
+          return false;
+        case 'k': // Clear terminal viewport
+          e.preventDefault();
+          term.clear();
+          return false;
+        default:
+          return true;
+      }
+    });
+
     // Defer fit() until the DOM has laid out and the terminal has dimensions
     const rafId = requestAnimationFrame(() => {
       if (!disposed) {
