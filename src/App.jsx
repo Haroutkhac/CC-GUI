@@ -46,6 +46,17 @@ export default function App() {
     }
   }, [deleteSession]);
 
+  // X key near table -> delete project with confirm
+  const handleDeleteTable = useCallback(async (projectId, name) => {
+    if (confirm(`Delete ${name || 'this table'} and release all its Pokemon?`)) {
+      try {
+        await deleteProject(projectId);
+      } catch (err) {
+        console.error('Failed to delete project:', err);
+      }
+    }
+  }, [deleteProject]);
+
   // Table click -> open carousel
   const handleTableInteract = useCallback((projectId) => {
     const project = projects.find(p => p.id === projectId);
@@ -184,6 +195,7 @@ export default function App() {
         sessions={sessions}
         onNPCInteract={handleNPCInteract}
         onTableInteract={handleTableInteract}
+        onDeleteTable={handleDeleteTable}
         onDismissNPC={handleDismissNPC}
         inputPaused={!!activeTerminal || !!dialog || dashboardOpen || orchestratorOpen || !!carouselProject}
       />

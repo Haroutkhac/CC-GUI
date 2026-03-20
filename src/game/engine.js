@@ -57,6 +57,7 @@ export class GameEngine {
     this.nearbyTable = null;
     this.onInteract = null;
     this.onTableInteract = null;
+    this.onDeleteTable = null;
     this.onDismissNPC = null;
 
     // Pause input when overlays are open
@@ -223,6 +224,9 @@ export class GameEngine {
         if (this.nearbyNPC) {
           e.preventDefault();
           this.onDismissNPC?.(this.nearbyNPC.sessionId, this.nearbyNPC.name);
+        } else if (this.nearbyTable) {
+          e.preventDefault();
+          this.onDeleteTable?.(this.nearbyTable.projectId, this.nearbyTable.name);
         }
       }
     };
