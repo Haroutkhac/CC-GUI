@@ -6,6 +6,7 @@ import '@xterm/xterm/css/xterm.css';
 
 export default function TerminalOverlay({
   sessionId,
+  visible = true,
   sessionName,
   socket,
   onClose,
@@ -153,6 +154,18 @@ export default function TerminalOverlay({
     };
   }, [sessionId, socket, sendInput, resizeTerminal, attachTerminal, detachTerminal]);
 
+  // Re-fit and focus terminal when overlay becomes visible again
+  useEffect(() => {
+    if (visible && fitAddonRef.current && xtermRef.current) {
+      requestAnimationFrame(() => {
+        if (fitAddonRef.current && xtermRef.current) {
+          try { fitAddonRef.current.fit(); } catch (_) {}
+          xtermRef.current.focus();
+        }
+      });
+    }
+  }, [visible]);
+
   // Swipe detection on header for switching sessions
   const touchStartX = useRef(0);
   const handleHeaderTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
@@ -223,7 +236,7 @@ export default function TerminalOverlay({
   const totalSessions = projectSessions ? projectSessions.length : 0;
 
   return (
-    <div className="terminal-overlay">
+    <div className="terminal-overlay" style={visible ? undefined : { display: 'none' }}>
       <div
         className="terminal-header"
         onTouchStart={handleHeaderTouchStart}

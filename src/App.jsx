@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import GameCanvas from './components/GameCanvas.jsx';
 import TerminalOverlay from './components/TerminalOverlay.jsx';
 import { CreateProjectDialog, CreateSessionDialog, TableContextMenu, ConfirmDialog } from './components/DialogBox.jsx';
@@ -19,6 +19,7 @@ export default function App() {
 
   const [activeTerminal, setActiveTerminal] = useState(null);
   const [activeProjectId, setActiveProjectId] = useState(null); // for swipe context
+  const lastTerminalRef = useRef(null);
   const [dialog, setDialog] = useState(null);
   const [dialogData, setDialogData] = useState(null);
   const [dashboardOpen, setDashboardOpen] = useState(false);
@@ -184,7 +185,13 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKey, true);
   }, [activeTerminal, dialog, dashboardOpen, orchestratorOpen, carouselProject, confirmDialog, projects, orchestratorQueue, openTerminal, handleQuickCreate]);
 
-  const activeSession = activeTerminal ? sessions.find(s => s.id === activeTerminal) : null;
+  // Track last opened terminal so we can keep it mounted (hidden) when closed
+  useEffect(() => {
+    if (activeTerminal) lastTerminalRef.current = activeTerminal;
+  }, [activeTerminal]);
+
+  const terminalSessionId = activeTerminal || lastTerminalRef.current;
+  const terminalSession = terminalSessionId ? sessions.find(s => s.id === terminalSessionId) : null;
   const projectSessionsForSwipe = activeProjectId
     ? sessions.filter(s => s.projectId === activeProjectId)
     : [];
@@ -267,12 +274,12 @@ export default function App() {
         />
       )}
 
-      {/* Terminal overlay */}
-      {activeTerminal && socket && (
+      {/* Terminal overlay — kept mounted to preserve chat history */}
+      {terminalSessionId && socket && (
         <TerminalOverlay
-          key={activeTerminal}
-          sessionId={activeTerminal}
-          sessionName={activeSession?.name}
+          sessionId={terminalSessionId}
+          visible={!!activeTerminal}
+          sessionName={terminalSession?.name}
           socket={socket}
           onClose={() => setActiveTerminal(null)}
           sendInput={sendTerminalInput}
