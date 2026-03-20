@@ -93,7 +93,7 @@ export default function TerminalOverlay({
         case 'c': // Copy selection (fall through to default if no selection)
           if (term.hasSelection()) {
             e.preventDefault();
-            navigator.clipboard.writeText(term.getSelection());
+            navigator.clipboard.writeText(term.getSelection()).catch(() => {});
             term.clearSelection();
             return false;
           }
@@ -102,7 +102,7 @@ export default function TerminalOverlay({
           e.preventDefault();
           navigator.clipboard.readText().then((text) => {
             if (text && !disposed) sendInput(sessionId, text);
-          });
+          }).catch(() => {});
           return false;
         case 'k': // Clear terminal viewport
           e.preventDefault();
