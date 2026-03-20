@@ -11,7 +11,7 @@ export default function HUD({ projects, sessions, connected, orchestratorQueue, 
   return (
     <div className="pkmn-hud">
       <div className="pkmn-hud-left">
-        <div className="pkmn-hud-title">CLAUDE CODE GUILD</div>
+        <div className="pkmn-hud-title">CC GYM</div>
         <div className="pkmn-hud-stats">
           <span>{projects.length} Tables</span>
           <span className="pkmn-hud-sep">&bull;</span>

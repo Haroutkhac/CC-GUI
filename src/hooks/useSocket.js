@@ -75,7 +75,7 @@ export function useSocket() {
       // Browser notification
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
-          new Notification('Claude Code Guild', {
+          new Notification('CC Gym', {
             body: notif.message,
             icon: '/favicon.ico',
           });

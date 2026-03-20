@@ -567,8 +567,8 @@ export class GameEngine {
 
     // Project name labels below rugs
     if (this.tablePositions.length > 0) {
-      const fontSize = 5 * s;
-      const pad = 3 * s;
+      const fontSize = 3 * s;
+      const pad = 2 * s;
       const lh = fontSize + pad * 2;
       ctx.save();
       ctx.font = `${fontSize}px "Press Start 2P", monospace`;
