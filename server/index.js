@@ -218,6 +218,18 @@ io.on('connection', (socket) => {
 
     let term = terminalManager.get(sessionId);
     if (!term) {
+      // Don't re-spawn a process that already exited — show previous output instead
+      if (session.status === 'exited') {
+        socket.join(`session:${sessionId}`);
+        const scrollback = terminalManager.getScrollback(sessionId);
+        if (scrollback) {
+          socket.emit('terminal:data', { sessionId, data: scrollback });
+        }
+        socket.emit('terminal:exit', { sessionId, code: session.exitCode ?? 0 });
+        socket.emit('terminal:attached', { sessionId });
+        return;
+      }
+
       const cmd = (session.command || 'claude').trim();
       if (!cmd) {
         socket.emit('terminal:error', { sessionId, error: 'No command specified' });
