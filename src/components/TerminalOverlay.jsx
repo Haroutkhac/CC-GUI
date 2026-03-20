@@ -214,10 +214,7 @@ export default function TerminalOverlay({
 
   // Quick action buttons
   const quickActions = [
-    { label: 'Y', value: 'y\r', color: '#40A048' },
-    { label: 'N', value: 'n\r', color: '#C04040' },
     { label: '\u21B5', value: '\r', color: '#3060A0' }, // Enter
-    { label: 'C-c', value: '\x03', color: '#C04040' }, // Ctrl+C
     { label: 'Tab', value: '\t', color: '#606060' },
     { label: '\u2191', value: '\x1b[A', color: '#606060' }, // Up
     { label: '\u2193', value: '\x1b[B', color: '#606060' }, // Down
