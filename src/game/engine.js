@@ -36,6 +36,9 @@ const SEAT_OFFSETS = [
   { dx: 0, dy: -2, labelSide: 'above' },
 ];
 
+// Persist player position across engine recreation (HMR, StrictMode remount)
+let _savedPlayerPos = null;
+
 export class GameEngine {
   constructor(canvas) {
     this.canvas = canvas;
@@ -43,12 +46,15 @@ export class GameEngine {
     this.scale = 3;
     this.tileSize = TILE * this.scale;
 
-    // Player - grid-snapped
+    // Player - grid-snapped; restore saved position if available
+    const startX = _savedPlayerPos?.tileX ?? 8;
+    const startY = _savedPlayerPos?.tileY ?? 10;
+    const startDir = _savedPlayerPos?.direction ?? 'down';
     this.player = {
-      tileX: 8, tileY: 10,     // current tile
-      pixelX: 8, pixelY: 10,   // visual position (for smooth interpolation)
-      targetX: 8, targetY: 10, // move target
-      direction: 'down',
+      tileX: startX, tileY: startY,
+      pixelX: startX, pixelY: startY,
+      targetX: startX, targetY: startY,
+      direction: startDir,
       frame: 0,
       moving: false,
       moveStart: 0,
@@ -266,6 +272,7 @@ export class GameEngine {
 
     // Click/tap interactions
     const handlePointer = (e) => {
+      if (this.inputPaused) return;
       const rect = this.canvas.getBoundingClientRect();
       const px = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left;
       const py = (e.clientY ?? e.touches?.[0]?.clientY) - rect.top;
@@ -623,6 +630,12 @@ export class GameEngine {
   stop() { this.running = false; }
 
   destroy() {
+    // Save player position so it survives engine recreation
+    _savedPlayerPos = {
+      tileX: this.player.tileX,
+      tileY: this.player.tileY,
+      direction: this.player.direction,
+    };
     this.running = false;
     this._clickTarget = null;
     this.keys = {};
