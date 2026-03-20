@@ -49,6 +49,11 @@ export class TerminalManager {
     ptyProcess.onExit(({ exitCode }) => {
       // Preserve scrollback so re-attaching shows previous output
       this.deadScrollback.set(sessionId, entry.scrollback);
+      // Cap dead scrollback entries to prevent unbounded memory growth
+      if (this.deadScrollback.size > 50) {
+        const oldest = this.deadScrollback.keys().next().value;
+        this.deadScrollback.delete(oldest);
+      }
       this.terminals.delete(sessionId);
       if (onExit) onExit(exitCode);
     });
