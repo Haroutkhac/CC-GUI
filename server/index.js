@@ -6,6 +6,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { execFile } from 'child_process';
+import crypto from 'crypto';
 import fs from 'fs';
 import { TerminalManager } from './terminal-manager.js';
 import { Store } from './store.js';
