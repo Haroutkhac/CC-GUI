@@ -280,12 +280,13 @@ export default function TerminalOverlay({
   const totalSessions = projectSessions ? projectSessions.length : 0;
 
   return (
-    <div className="terminal-overlay" style={visible ? undefined : { display: 'none' }}>
-      <div
-        className="terminal-header"
-        onTouchStart={handleHeaderTouchStart}
-        onTouchEnd={handleHeaderTouchEnd}
-      >
+    <div
+      className="terminal-overlay"
+      style={visible ? undefined : { display: 'none' }}
+      onTouchStart={handleHeaderTouchStart}
+      onTouchEnd={handleHeaderTouchEnd}
+    >
+      <div className="terminal-header">
         <div className="terminal-title">
           <span className="terminal-dot green" />
           <span>{sessionName || 'Terminal'}</span>
@@ -348,7 +349,7 @@ export default function TerminalOverlay({
       {totalSessions > 1 && (
         <div className="terminal-swipe-hint">
           {currentIdx > 0 && <span className="swipe-arrow left">{'\u25C0'}</span>}
-          <span>swipe header to switch</span>
+          <span>swipe to switch</span>
           {currentIdx < totalSessions - 1 && <span className="swipe-arrow right">{'\u25B6'}</span>}
         </div>
       )}
