@@ -4,10 +4,11 @@
 import { execFile } from 'child_process';
 import { stripAnsi } from './utils.js';
 
-const SUMMARY_DEBOUNCE_MS = 5000;
-const SUMMARY_COOLDOWN_MS = 45000;
+const SUMMARY_DEBOUNCE_MS = 2000;
+const SUMMARY_COOLDOWN_MS = 20000;
 const MAX_OUTPUT_CHARS = 3000;
 const CALL_TIMEOUT_MS = 60000;
+const RETRY_DELAY_MS = 3000;
 const AUTO_RESPOND_COOLDOWN_MS = 3000;
 const GIT_POLL_INTERVAL_MS = 15000;  // Poll git state every 15s
 
@@ -50,6 +51,10 @@ export class AIOrchestrator {
     // --- PR creation ---
     this.prStatus = {};            // sessionId -> { status, prUrl, error, updatedAt }
     this.onPRStatus = null;
+
+    // --- Git poll dedup ---
+    this._gitPollInFlight = false;
+    this._gitPollQueued = false;
   }
 
   // Start the git polling loop
@@ -85,12 +90,15 @@ export class AIOrchestrator {
       this.sessionMeta[sessionId].status = newStatus;
     }
 
-    // Summarize on meaningful state transitions
+    // Summarize on meaningful state transitions — bypass cooldown for these
+    // (these are the moments the user cares about: agent finished or needs input)
     if (['waiting', 'exited'].includes(newStatus)) {
-      const lastTime = this.lastSummarizedAt[sessionId] || 0;
-      if (Date.now() - lastTime >= SUMMARY_COOLDOWN_MS) {
-        this.pendingSessions.add(sessionId);
-        this._scheduleBatch();
+      this.pendingSessions.add(sessionId);
+      this._scheduleBatch();
+
+      // Trigger immediate git poll so diffs are fresh when summary arrives
+      if (this.gitMonitor && this.store) {
+        this._gitPoll();
       }
     }
 
@@ -144,6 +152,26 @@ export class AIOrchestrator {
   // ========== GIT MONITORING ==========
 
   async _gitPoll() {
+    if (!this.store || !this.gitMonitor) return;
+
+    // Dedup: if a poll is already in flight, queue one follow-up at most
+    if (this._gitPollInFlight) {
+      this._gitPollQueued = true;
+      return;
+    }
+    this._gitPollInFlight = true;
+    try {
+      await this._gitPollInner();
+    } finally {
+      this._gitPollInFlight = false;
+      if (this._gitPollQueued) {
+        this._gitPollQueued = false;
+        this._gitPoll();
+      }
+    }
+  }
+
+  async _gitPollInner() {
     if (!this.store || !this.gitMonitor) return;
 
     const sessions = this.store.getSessions().filter(s => s.worktreePath && s.branch);
@@ -561,25 +589,35 @@ Respond ONLY with JSON:`;
       return;
     }
 
-    try {
-      const prompt = this._buildPrompt(digests);
-      const raw = await this._callClaude(prompt);
-      const results = this._parseResponse(raw, sessionIds);
+    const prompt = this._buildPrompt(digests);
+    let results = [];
+    let attempts = 0;
 
-      for (const result of results) {
-        this.summaries[result.sessionId] = {
-          summary: result.summary,
-          action: result.action,
-          updatedAt: Date.now(),
-        };
-        this.lastSummarizedAt[result.sessionId] = Date.now();
+    while (attempts < 2) {
+      attempts++;
+      try {
+        const raw = await this._callClaude(prompt);
+        results = this._parseResponse(raw, sessionIds);
+        break;
+      } catch (err) {
+        console.warn(`[AI Orchestrator] Summary attempt ${attempts} failed:`, err.message);
+        if (attempts < 2) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        }
       }
+    }
 
-      if (results.length > 0) {
-        this.onChange?.();
-      }
-    } catch (err) {
-      console.warn('[AI Orchestrator] Summary failed:', err.message);
+    for (const result of results) {
+      this.summaries[result.sessionId] = {
+        summary: result.summary,
+        action: result.action,
+        updatedAt: Date.now(),
+      };
+      this.lastSummarizedAt[result.sessionId] = Date.now();
+    }
+
+    if (results.length > 0) {
+      this.onChange?.();
     }
 
     this._processing = false;
