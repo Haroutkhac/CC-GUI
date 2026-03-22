@@ -460,6 +460,11 @@ html, body, #root {
   background: #E8E0D0; padding: 2px 6px;
   border: 1px solid #C0B8A0;
 }
+.terminal-meta {
+  font-size: 6px; color: #808080;
+  max-width: 200px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .terminal-dot { width: 8px; height: 8px; border-radius: 50%; }
 .terminal-dot.green { background: #40A048; }
 

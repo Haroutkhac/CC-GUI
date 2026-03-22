@@ -8,6 +8,8 @@ export default function TerminalOverlay({
   sessionId,
   visible = true,
   sessionName,
+  projectName,
+  branch,
   socket,
   onClose,
   sendInput,
@@ -309,6 +311,11 @@ export default function TerminalOverlay({
           <span>{sessionName || 'Terminal'}</span>
           {totalSessions > 1 && (
             <span className="terminal-pos">{currentIdx + 1}/{totalSessions}</span>
+          )}
+          {(projectName || branch) && (
+            <span className="terminal-meta">
+              {projectName}{branch ? ` · ${branch}` : ''}
+            </span>
           )}
         </div>
         <div className="terminal-header-actions">

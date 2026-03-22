@@ -336,6 +336,8 @@ export default function App() {
           sessionId={terminalSessionId}
           visible={!!activeTerminal}
           sessionName={terminalSession?.name}
+          projectName={terminalSession ? projects.find(p => p.id === terminalSession.projectId)?.name : null}
+          branch={terminalSession?.branch}
           socket={socket}
           onClose={() => setActiveTerminal(null)}
           sendInput={sendTerminalInput}
