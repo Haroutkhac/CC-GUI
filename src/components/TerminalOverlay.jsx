@@ -99,11 +99,42 @@ export default function TerminalOverlay({
             return false;
           }
           return true; // let Ctrl+C send SIGINT when nothing is selected
-        case 'v': // Paste
+        case 'v': // Paste (text or image)
           e.preventDefault();
-          navigator.clipboard.readText().then((text) => {
-            if (text && !disposed) sendInput(sessionId, text);
-          }).catch(() => {});
+          (async () => {
+            try {
+              const items = await navigator.clipboard.read();
+              for (const item of items) {
+                const imageType = item.types.find(t => t.startsWith('image/'));
+                if (imageType) {
+                  const blob = await item.getType(imageType);
+                  const base64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(blob);
+                  });
+                  const res = await fetch('/api/upload-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: base64, mimeType: imageType }),
+                  });
+                  if (res.ok) {
+                    const { path } = await res.json();
+                    if (!disposed) sendInput(sessionId, path);
+                  }
+                  return;
+                }
+              }
+              // No image — paste as text
+              const text = await navigator.clipboard.readText();
+              if (text && !disposed) sendInput(sessionId, text);
+            } catch {
+              // Fallback: clipboard.read() may not be supported
+              navigator.clipboard.readText().then((text) => {
+                if (text && !disposed) sendInput(sessionId, text);
+              }).catch(() => {});
+            }
+          })();
           return false;
         case 'k': // Clear terminal viewport
           e.preventDefault();
@@ -163,6 +194,36 @@ export default function TerminalOverlay({
       }
     }, 0);
 
+    // Handle native paste events (right-click paste, mobile paste) for images
+    const handlePaste = async (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const blob = item.getAsFile();
+          if (!blob) return;
+          const base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.readAsDataURL(blob);
+          });
+          const res = await fetch('/api/upload-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: base64, mimeType: item.type }),
+          });
+          if (res.ok) {
+            const { path } = await res.json();
+            if (!disposed) sendInput(sessionId, path);
+          }
+          return;
+        }
+      }
+    };
+    container.addEventListener('paste', handlePaste);
+
     const handleResize = () => {
       if (!disposed) fitAddon.fit();
     };
@@ -181,6 +242,7 @@ export default function TerminalOverlay({
       socket.off('terminal:exit', handleExit);
       socket.off('terminal:error', handleError);
       window.removeEventListener('resize', handleResize);
+      container.removeEventListener('paste', handlePaste);
       if (attached) detachTerminal(sessionId);
       term.dispose();
       xtermRef.current = null;
@@ -278,6 +340,9 @@ export default function TerminalOverlay({
     }
   };
 
+  // Prevent buttons from stealing focus from xterm
+  const keepFocus = (e) => e.preventDefault();
+
   // Quick action buttons
   const quickActions = [
     { label: '\u21B5', value: '\r', color: '#3060A0' }, // Enter
@@ -324,6 +389,7 @@ export default function TerminalOverlay({
           )}
           <button
             className={`terminal-btn ${gitMenuOpen ? 'active' : ''}`}
+            onMouseDown={keepFocus}
             onClick={() => setGitMenuOpen(!gitMenuOpen)}
           >GIT</button>
           <button className="terminal-close" onClick={onClose}>X</button>
@@ -337,6 +403,7 @@ export default function TerminalOverlay({
             <button
               key={a.label}
               className="terminal-git-item"
+              onMouseDown={keepFocus}
               onClick={() => { sendInput(sessionId, a.cmd); setGitMenuOpen(false); }}
             >{a.label}</button>
           ))}
@@ -352,6 +419,7 @@ export default function TerminalOverlay({
             key={a.label}
             className="quick-action-btn"
             style={{ borderColor: a.color, color: a.color }}
+            onMouseDown={keepFocus}
             onClick={() => sendInput(sessionId, a.value)}
           >{a.label}</button>
         ))}

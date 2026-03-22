@@ -408,6 +408,9 @@ export class GameEngine {
     if (!p.moving) {
       let dir = this.getDirection();
 
+      // Arrow key input cancels click-to-move
+      if (dir && this._clickTarget) this._clickTarget = null;
+
       // Click-to-move
       if (!dir && this._clickTarget) {
         const dx = this._clickTarget.x - p.tileX;

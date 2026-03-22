@@ -6,6 +6,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { execFile } from 'child_process';
+import crypto from 'crypto';
 import fs from 'fs';
 import { TerminalManager } from './terminal-manager.js';
 import { Store } from './store.js';
@@ -26,8 +27,27 @@ const io = new Server(server, {
 });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+// Image paste upload — saves base64 image to temp file, returns absolute path
+app.post('/api/upload-image', async (req, res) => {
+  try {
+    const { data, mimeType } = req.body;
+    if (!data || !mimeType) return res.status(400).json({ error: 'Missing data or mimeType' });
+    const extMap = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp', 'image/svg+xml': '.svg' };
+    const ext = extMap[mimeType] || '.png';
+    const dir = path.join(os.tmpdir(), 'cc-gui-images');
+    await fs.promises.mkdir(dir, { recursive: true });
+    const filename = `paste-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+    const filePath = path.join(dir, filename);
+    await fs.promises.writeFile(filePath, Buffer.from(data, 'base64'));
+    res.json({ path: filePath });
+  } catch (e) {
+    console.error('[upload-image]', e);
+    res.status(500).json({ error: 'Failed to save image' });
+  }
+});
 
 const dataDir = path.join(__dirname, '..', 'data');
 const store = new Store(path.join(dataDir, 'store.json'));

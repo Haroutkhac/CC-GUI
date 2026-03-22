@@ -52,8 +52,23 @@ export class StateDetector {
   ingest(sessionId, rawData) {
     this.ptyLogger.log(sessionId, rawData);
 
+    // Detect clear screen — old content is no longer visible, reset buffer
+    // Claude Code sends these when /clear is run
+    const hasClearScreen = /\x1b\[2J|\x1bc|\x1b\[3J/.test(rawData);
+
     // Update buffer and invalidate clean cache
     if (!this.statusBuffers[sessionId]) this.statusBuffers[sessionId] = '';
+    if (hasClearScreen) {
+      // Reset buffer — old content is gone from the terminal
+      this.statusBuffers[sessionId] = rawData;
+      const state = this._getSession(sessionId);
+      state._cleanCache = null;
+      state.lastClearTime = Date.now();
+      // Clear stale transcript state (old end_turn is irrelevant after /clear)
+      state.transcriptState = null;
+      this._setPtyState(sessionId, 'active');
+      return;
+    }
     this.statusBuffers[sessionId] += rawData;
     if (this.statusBuffers[sessionId].length > STATUS_BUFFER_LIMIT) {
       this.statusBuffers[sessionId] = this.statusBuffers[sessionId].slice(-STATUS_BUFFER_LIMIT);
@@ -71,6 +86,7 @@ export class StateDetector {
     // 1. Spinner detection (highest priority for "working")
     if (SPINNER_PATTERN.test(rawData)) {
       state.lastSpinnerTime = Date.now();
+      state.lastClearTime = 0; // real work started — re-enable prompt detection
       this._setPtyState(sessionId, 'working');
 
       // Reset cooldown timer — maintain "working" for 2s after last spinner
@@ -100,6 +116,14 @@ export class StateDetector {
 
     // Waiting patterns — prompt at end of output
     if (/(?:^|\n)\s*>\s*$/.test(tail) || /❯\s*$/.test(tail) || /\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail) || /(?:^|\n)\s*\?\s*$/.test(tail)) {
+      // After a screen clear, the fresh prompt is not "waiting for input" —
+      // suppress until real work (spinners) starts a new turn
+      if (state.lastClearTime && Date.now() - state.lastClearTime < 30000) {
+        if (state.ptyState !== 'active') {
+          this._setPtyState(sessionId, 'active');
+        }
+        return;
+      }
       this._setPtyState(sessionId, 'waiting');
       return;
     }
@@ -131,6 +155,10 @@ export class StateDetector {
 
   _onTranscriptState(sessionId, transcriptState) {
     const state = this._getSession(sessionId);
+    // Real work from transcript clears the post-clear suppression
+    if (transcriptState === 'thinking' || transcriptState === 'tool_running') {
+      state.lastClearTime = 0;
+    }
     state.transcriptState = transcriptState;
     this._resolveAndEmit(sessionId);
   }
