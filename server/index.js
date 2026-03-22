@@ -14,7 +14,6 @@ import { AIOrchestrator } from './ai-orchestrator.js';
 import { WorktreeManager } from './worktree-manager.js';
 import { GitMonitor } from './git-monitor.js';
 import { StateDetector } from './state-detector.js';
-import crypto from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv.includes('--production');
@@ -30,8 +29,9 @@ app.use(cors());
 app.use(express.json());
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
-const store = new Store(path.join(__dirname, '..', 'data', 'store.json'));
-const terminalManager = new TerminalManager();
+const dataDir = path.join(__dirname, '..', 'data');
+const store = new Store(path.join(dataDir, 'store.json'));
+const terminalManager = new TerminalManager({ dataDir });
 const stateDetector = new StateDetector();
 const orchestrator = new Orchestrator({ stateDetector });
 const gitMonitor = new GitMonitor();
@@ -439,15 +439,17 @@ io.on('connection', (socket) => {
         return;
       }
       const parts = cmd.split(/\s+/);
-      const command = parts[0];
-      const commandArgs = parts.slice(1);
+      let command = parts[0];
+      let commandArgs = parts.slice(1);
+      const isClaudeCmd = command === 'claude';
 
-      // Add --session-id for Claude CLI so transcript path is deterministic
-      let claudeSessionId = null;
-      if (command === 'claude') {
-        claudeSessionId = crypto.randomUUID();
-        commandArgs.push('--session-id', claudeSessionId);
-        store.updateSession(sessionId, { claudeSessionId });
+      if (isClaudeCmd && session.claudeSessionId) {
+        // Re-spawning after crash: resume the previous Claude conversation
+        commandArgs = ['--resume', session.claudeSessionId];
+      } else if (isClaudeCmd && !session.claudeSessionId) {
+        // First spawn: pin a session ID so we can resume after crashes
+        commandArgs.push('--session-id', sessionId);
+        store.updateSession(sessionId, { claudeSessionId: sessionId });
       }
 
       try {
@@ -505,8 +507,9 @@ io.on('connection', (socket) => {
         });
 
         // Start transcript watcher for Claude sessions
-        if (claudeSessionId) {
-          stateDetector.watchTranscript(sessionId, cwd, claudeSessionId);
+        const storedClaudeId = store.getSession(sessionId)?.claudeSessionId;
+        if (storedClaudeId) {
+          stateDetector.watchTranscript(sessionId, cwd, storedClaudeId);
         }
       } catch (err) {
         console.error(`Failed to spawn terminal for session ${sessionId}:`, err.message);

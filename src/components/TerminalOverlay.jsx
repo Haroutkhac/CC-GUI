@@ -86,23 +86,9 @@ export default function TerminalOverlay({
       if (!mod || e.type !== 'keydown') return true;
 
       switch (e.key) {
-        case 'a': { // Select current input line (not entire scrollback)
+        case 'a': // Select input line — handled by overlay-level listener
           e.preventDefault();
-          const buf = term.buffer.active;
-          const absRow = buf.baseY + buf.cursorY;
-          const line = buf.getLine(absRow);
-          if (line) {
-            const text = line.translateToString(true);
-            // Find prompt character and select everything after it
-            const promptIdx = Math.max(text.lastIndexOf('> '), text.lastIndexOf('❯ '));
-            const start = promptIdx >= 0 ? promptIdx + 2 : 0;
-            const length = text.trimEnd().length - start;
-            if (length > 0) {
-              term.select(start, absRow, length);
-            }
-          }
           return false;
-        }
         case 'c': // Copy selection (fall through to default if no selection)
           if (term.hasSelection()) {
             e.preventDefault();
@@ -211,6 +197,39 @@ export default function TerminalOverlay({
         }
       });
     }
+  }, [visible]);
+
+  // Cmd/Ctrl+A at overlay level — xterm's handler only fires when its canvas has
+  // focus, but the user may click the header/toolbar and lose focus. This listener
+  // captures the event regardless and selects the current input line.
+  useEffect(() => {
+    if (!visible) return;
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        console.log('[Cmd+A] handler fired, visible:', visible);
+        const term = xtermRef.current;
+        console.log('[Cmd+A] xtermRef:', !!term);
+        if (!term) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const buf = term.buffer.active;
+        const absRow = buf.baseY + buf.cursorY;
+        const line = buf.getLine(absRow);
+        if (line) {
+          const text = line.translateToString(true);
+          const trimmed = text.trimEnd();
+          // Find prompt: scan for common prompt characters from the left
+          const promptMatch = text.match(/^(.*?[>❯›➜❱$%#]\s?)/);
+          const start = promptMatch ? promptMatch[1].length : 0;
+          const length = trimmed.length - start;
+          if (length > 0) {
+            term.select(start, absRow, length);
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handler, true); // capture phase
+    return () => window.removeEventListener('keydown', handler, true);
   }, [visible]);
 
   // Swipe detection on header for switching sessions
