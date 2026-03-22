@@ -118,6 +118,13 @@ export class StateDetector {
   _setPtyState(sessionId, ptyState) {
     const state = this._getSession(sessionId);
     if (state.ptyState === ptyState) return;
+
+    // When PTY exits "waiting" (prompt disappeared — user typed input),
+    // clear stale transcript "waiting" so the resolved status updates immediately
+    if (state.ptyState === 'waiting' && ptyState !== 'waiting' && state.transcriptState === 'waiting') {
+      state.transcriptState = null;
+    }
+
     state.ptyState = ptyState;
     this._resolveAndEmit(sessionId);
   }
@@ -143,6 +150,12 @@ export class StateDetector {
     // (PTY sees the prompt immediately, transcript may lag)
     if (state.ptyState === 'waiting') {
       granularState = 'waiting';
+    }
+
+    // PTY spinner detection overrides stale transcript "waiting"
+    // (after user sends input, PTY detects spinners before transcript updates)
+    if (state.ptyState === 'working' && granularState === 'waiting') {
+      granularState = 'working';
     }
 
     const newStatus = STATE_TO_STATUS[granularState] || 'active';

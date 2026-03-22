@@ -7,6 +7,7 @@ import HUD from './components/HUD.jsx';
 import StatusDashboard from './components/StatusDashboard.jsx';
 import SessionCarousel from './components/SessionCarousel.jsx';
 import OrchestratorPanel from './components/OrchestratorPanel.jsx';
+import MobileControls from './components/MobileControls.jsx';
 import { useSocket } from './hooks/useSocket.js';
 
 export default function App() {
@@ -390,39 +391,6 @@ export default function App() {
           onCancel={() => setConfirmDialog(null)}
         />
       )}
-    </div>
-  );
-}
-
-function MobileControls() {
-  const [visible, setVisible] = useState(false);
-  useEffect(() => { setVisible('ontouchstart' in window); }, []);
-  if (!visible) return null;
-
-  const press = (key, down) => {
-    window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { key }));
-  };
-  const Btn = ({ dir, label }) => (
-    <button
-      className={`dpad-btn dpad-${dir}`}
-      onTouchStart={e => { e.preventDefault(); press(`Arrow${dir.charAt(0).toUpperCase() + dir.slice(1)}`, true); }}
-      onTouchEnd={e => { e.preventDefault(); press(`Arrow${dir.charAt(0).toUpperCase() + dir.slice(1)}`, false); }}
-    >{label}</button>
-  );
-
-  return (
-    <div className="mobile-controls">
-      <div className="dpad">
-        <Btn dir="up" label={'\u25B2'} />
-        <Btn dir="left" label={'\u25C0'} />
-        <Btn dir="right" label={'\u25B6'} />
-        <Btn dir="down" label={'\u25BC'} />
-      </div>
-      <button
-        className="dpad-action"
-        onTouchStart={e => { e.preventDefault(); press('Enter', true); }}
-        onTouchEnd={e => { e.preventDefault(); press('Enter', false); }}
-      >A</button>
     </div>
   );
 }
