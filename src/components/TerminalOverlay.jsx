@@ -206,9 +206,7 @@ export default function TerminalOverlay({
     if (!visible) return;
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
-        console.log('[Cmd+A] handler fired, visible:', visible);
         const term = xtermRef.current;
-        console.log('[Cmd+A] xtermRef:', !!term);
         if (!term) return;
         e.preventDefault();
         e.stopPropagation();
