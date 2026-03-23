@@ -76,14 +76,13 @@ stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
     const starterName = session.starter
       ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
       : session.name;
-    const branchInfo = aiOrchestrator.getBranchStatus()[sessionId];
     const summary = aiOrchestrator.getSummaries()[sessionId];
     io.emit('notification', {
       sessionId,
       type: 'input_needed',
       message: `${starterName} needs your input!`,
       projectId: session.projectId,
-      branch: branchInfo?.branch,
+      branch: session.branch,
       summary: summary?.summary,
     });
   }
@@ -93,14 +92,13 @@ stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
     const starterName = session.starter
       ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
       : session.name;
-    const branchInfo = aiOrchestrator.getBranchStatus()[sessionId];
     const summary = aiOrchestrator.getSummaries()[sessionId];
     io.emit('notification', {
       sessionId,
       type: 'completed',
       message: `${starterName} finished!${summary?.summary ? ' ' + summary.summary : ''}`,
       projectId: session.projectId,
-      branch: branchInfo?.branch,
+      branch: session.branch,
       summary: summary?.summary,
     });
   }
