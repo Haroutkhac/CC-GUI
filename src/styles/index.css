@@ -56,7 +56,7 @@ html, body, #root {
   transition: transform 0.05s;
 }
 .pkmn-hud-btn:hover { background: #E8E0D0; }
-.pkmn-hud-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 rgba(0,0,0,0.3); }
+.pkmn-hud-btn:active, .pkmn-hud-btn.active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 rgba(0,0,0,0.3); background: #E8E0D0; }
 .hud-kbd {
   font-family: 'Press Start 2P', monospace;
   font-size: 7px; padding: 2px 4px; margin-left: 4px;
@@ -777,6 +777,160 @@ html, body, #root {
   animation: blink 1s infinite;
 }
 
+/* === NOTIFICATION PANEL === */
+.notif-panel {
+  position: absolute;
+  top: 70px; right: 12px;
+  width: 320px;
+  max-height: 420px;
+  background: #F8F8F0;
+  border: 3px solid #383838;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+  z-index: 45;
+  display: flex; flex-direction: column;
+  animation: notifSlideIn 0.15s ease-out;
+}
+@keyframes notifSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.notif-panel-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 10px;
+  border-bottom: 2px solid #C0B8A0;
+  background: #F0E8D8;
+}
+.notif-panel-title { font-size: 8px; color: #383838; letter-spacing: 1px; }
+.notif-panel-close {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 7px; background: none; border: none;
+  color: #808080; cursor: pointer; padding: 2px 4px;
+}
+.notif-panel-close:hover { color: #383838; }
+.notif-panel-body {
+  flex: 1; overflow-y: auto;
+  padding: 4px 0;
+}
+.notif-panel-empty {
+  font-size: 7px; color: #808080;
+  padding: 24px 12px; text-align: center;
+}
+
+.notif-item {
+  font-family: 'Press Start 2P', monospace;
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 10px;
+  width: 100%;
+  background: none; border: none;
+  border-bottom: 1px solid #E8E0D0;
+  cursor: pointer; text-align: left;
+  position: relative;
+  transition: background 0.05s;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: #E8E0D0; }
+
+.notif-item-urgent {
+  background: rgba(192, 136, 0, 0.06);
+  border-left: 3px solid #C08800;
+}
+.notif-item-urgent:hover { background: rgba(192, 136, 0, 0.12); }
+
+.notif-item-alert {
+  position: absolute;
+  top: 4px; left: 4px;
+  width: 14px; height: 14px;
+  background: #C08800;
+  color: #FFF;
+  font-size: 7px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #383838;
+  animation: blink 1s infinite;
+  z-index: 1;
+}
+
+.notif-item-avatar {
+  flex-shrink: 0;
+  width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  background: #F0E8D8;
+  border: 2px solid #C0B8A0;
+  overflow: hidden;
+}
+.notif-pixel-grid { image-rendering: pixelated; }
+.notif-pixel-grid-placeholder {
+  width: 48px; height: 48px;
+  background: #E8E0D0;
+}
+
+.notif-item-content {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.notif-item-header {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap;
+}
+.notif-item-project {
+  font-size: 7px; color: #383838;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  max-width: 120px;
+}
+.notif-item-branch {
+  font-size: 6px; color: #3060A0;
+  font-family: monospace;
+  padding: 1px 4px;
+  border: 1px solid #C0B8A0;
+  background: #F8F8F0;
+  white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  max-width: 120px;
+}
+.notif-item-summary {
+  font-size: 6px; color: #606060;
+  font-family: monospace;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.notif-item-status-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.notif-item-status {
+  font-size: 5px; text-transform: uppercase;
+  padding: 2px 5px;
+  border: 1px solid;
+}
+.notif-item-status.idle { color: #808080; border-color: #C0C0C0; }
+.notif-item-status.active { color: #3060A0; border-color: #3060A0; }
+.notif-item-status.working { color: #40A048; border-color: #40A048; }
+.notif-item-status.waiting { color: #C08800; border-color: #C08800; animation: blink 1s infinite; }
+.notif-item-status.completed { color: #2ECC71; border-color: #2ECC71; }
+.notif-item-status.exited { color: #C04040; border-color: #C04040; }
+.notif-item-name {
+  font-size: 6px; color: #808080;
+  text-transform: capitalize;
+}
+
+/* Notification bell in HUD */
+.notif-bell-btn { position: relative; }
+.notif-bell-badge {
+  position: absolute;
+  top: -6px; right: -6px;
+  background: #C08800;
+  color: #FFF;
+  font-size: 6px;
+  min-width: 14px; height: 14px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #383838;
+  animation: blink 1s infinite;
+}
+
 /* === ANIMATIONS === */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dialogIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -808,6 +962,7 @@ html, body, #root {
   .fab-team { bottom: 150px; right: 8px; font-size: 7px; padding: 10px 12px; }
   .dash-panel { max-width: 100%; }
   .carousel-card { min-width: 90%; max-width: 90%; margin: 0 5%; }
+  .notif-panel { width: calc(100vw - 24px); right: 12px; left: 12px; }
 }
 @media (max-width: 360px) {
   .pkmn-hud { padding: 4px 6px; }

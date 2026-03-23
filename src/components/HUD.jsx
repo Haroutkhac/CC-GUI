@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function HUD({ projects, sessions, connected, orchestratorQueue, onCreateProject, onOpenOrchestrator }) {
+export default function HUD({ projects, sessions, connected, orchestratorQueue, notificationCount, onCreateProject, onOpenOrchestrator, onToggleNotifications, notificationsOpen }) {
   const activeCount = sessions.filter(s => s.status === 'active' || s.status === 'working').length;
   const waitingSessions = sessions.filter(s => s.status === 'waiting');
   const waitingCount = waitingSessions.length;
@@ -38,6 +38,14 @@ export default function HUD({ projects, sessions, connected, orchestratorQueue, 
           <button className="pkmn-hud-btn orch-btn" onClick={onOpenOrchestrator}>
             {urgentCount > 0 && <span className="orch-hud-badge">{urgentCount}</span>}
             CMD CTR <kbd className="hud-kbd">K</kbd>
+          </button>
+          <button
+            className={`pkmn-hud-btn notif-bell-btn ${notificationsOpen ? 'active' : ''}`}
+            onClick={onToggleNotifications}
+            title="Activity feed"
+          >
+            {notificationCount > 0 && <span className="notif-bell-badge">{notificationCount}</span>}
+            NOTIFS
           </button>
           <button className="pkmn-hud-btn" onClick={onCreateProject}>
             + TABLE <kbd className="hud-kbd">N</kbd>
