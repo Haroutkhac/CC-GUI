@@ -99,13 +99,19 @@ export function useSocket() {
         } catch (e) { /* audio not available */ }
       }
 
-      // Browser notification
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      // Browser notification — show when tab is not visible
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
         try {
-          new Notification('CC Gym', {
+          const browserNotif = new Notification('CC Gym', {
             body: notif.message,
             icon: '/favicon.ico',
+            tag: `cc-gym-${notif.sessionId}`,
+            requireInteraction: notif.type === 'input_needed',
           });
+          browserNotif.onclick = () => {
+            window.focus();
+            browserNotif.close();
+          };
         } catch (e) { /* notification not available */ }
       }
     });

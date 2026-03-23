@@ -96,11 +96,30 @@ stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
     const starterName = session.starter
       ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
       : session.name;
+    const summary = aiOrchestrator.getSummaries()[sessionId];
     io.emit('notification', {
       sessionId,
       type: 'input_needed',
       message: `${starterName} needs your input!`,
       projectId: session.projectId,
+      branch: session.branch,
+      summary: summary?.summary,
+    });
+  }
+
+  // Notify for completed state
+  if (newStatus === 'completed') {
+    const starterName = session.starter
+      ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+      : session.name;
+    const summary = aiOrchestrator.getSummaries()[sessionId];
+    io.emit('notification', {
+      sessionId,
+      type: 'completed',
+      message: `${starterName} finished!${summary?.summary ? ' ' + summary.summary : ''}`,
+      projectId: session.projectId,
+      branch: session.branch,
+      summary: summary?.summary,
     });
   }
 };
