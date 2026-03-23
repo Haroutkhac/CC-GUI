@@ -66,11 +66,9 @@ export default function NotificationPanel({
   sessions,
   projects,
   aiSummaries,
-  aiBranches,
   notifications,
   onSelectSession,
   onClose,
-  onDismissItem,
 }) {
   const panelRef = useRef(null);
 
@@ -108,7 +106,6 @@ export default function NotificationPanel({
         const session = sessions.find(s => s.id === notif.sessionId);
         const project = session ? projects.find(p => p.id === session.projectId) : null;
         const summary = aiSummaries[notif.sessionId];
-        const branchInfo = aiBranches[notif.sessionId];
 
         return {
           ...notif,
@@ -116,7 +113,7 @@ export default function NotificationPanel({
           sessionName: session?.name,
           sessionStatus: session?.status,
           projectName: project?.name,
-          branch: branchInfo?.branch,
+          branch: session?.branch || notif.branch,
           summary: summary?.summary,
           needsInput: session?.status === 'waiting',
         };
@@ -129,7 +126,7 @@ export default function NotificationPanel({
         return new Date(b.time || 0) - new Date(a.time || 0);
       })
       .slice(0, 8);
-  }, [notifications, sessions, projects, aiSummaries, aiBranches]);
+  }, [notifications, sessions, projects, aiSummaries]);
 
   // Close on outside click
   useEffect(() => {

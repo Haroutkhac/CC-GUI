@@ -273,7 +273,6 @@ export default function App() {
           sessions={sessions}
           projects={projects}
           aiSummaries={aiSummaries}
-          aiBranches={aiBranches}
           notifications={notifications}
           onSelectSession={(sessionId) => {
             setNotificationsOpen(false);
