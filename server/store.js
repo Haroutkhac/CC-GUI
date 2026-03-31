@@ -27,7 +27,17 @@ export class Store {
         this.data = JSON.parse(fs.readFileSync(this.filePath, 'utf-8'));
       }
     } catch (e) {
-      console.error('Failed to load store:', e);
+      console.warn('Failed to load store from primary file:', e.message);
+      const bakPath = this.filePath + '.bak';
+      try {
+        if (fs.existsSync(bakPath)) {
+          console.warn('Falling back to backup file:', bakPath);
+          this.data = JSON.parse(fs.readFileSync(bakPath, 'utf-8'));
+          console.warn('Successfully restored data from backup.');
+        }
+      } catch (e2) {
+        console.error('Failed to load store from backup:', e2.message);
+      }
     }
   }
 
@@ -38,7 +48,16 @@ export class Store {
       try {
         const dir = path.dirname(this.filePath);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2));
+
+        // Keep a backup of the current file before overwriting
+        if (fs.existsSync(this.filePath)) {
+          fs.copyFileSync(this.filePath, this.filePath + '.bak');
+        }
+
+        // Atomic write: write to temp file, then rename into place
+        const tmpPath = this.filePath + '.tmp';
+        fs.writeFileSync(tmpPath, JSON.stringify(this.data, null, 2));
+        fs.renameSync(tmpPath, this.filePath);
       } catch (e) {
         console.error('Failed to save store:', e);
       }
