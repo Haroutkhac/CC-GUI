@@ -4,728 +4,485 @@
 // === REGIONS & STARTERS (re-exported from shared) ===
 export { REGIONS } from '../../shared/constants.js';
 
-// === POKEMON DRAWING FUNCTIONS ===
+// === POKEMON SPRITE DATA ===
+// Each sprite is a 16x16 grid of palette indices.
+// palette: array of hex colors used by this sprite
+// grid: 16 rows of up to 16 values; undefined = transparent, number = palette index
 
-function drawBulbasaur(ctx, x, y, s) {
-  // Bulb
-  ctx.fillStyle = '#326B4E';
-  ctx.fillRect(x+4*s, y+0*s, 8*s, 4*s);
-  ctx.fillRect(x+3*s, y+1*s, 10*s, 3*s);
-  // Body
-  ctx.fillStyle = '#5DB894';
-  ctx.fillRect(x+2*s, y+4*s, 12*s, 8*s);
-  ctx.fillRect(x+3*s, y+3*s, 10*s, 10*s);
-  // Spots
-  ctx.fillStyle = '#4A9B7C';
-  ctx.fillRect(x+4*s, y+6*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+7*s, 2*s, 2*s);
-  // Eyes
-  ctx.fillStyle = '#E04040';
-  ctx.fillRect(x+4*s, y+5*s, 2*s, 2*s);
-  ctx.fillRect(x+10*s, y+5*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+4*s, y+5*s, 1*s, 1*s);
-  ctx.fillRect(x+10*s, y+5*s, 1*s, 1*s);
-  // Mouth
-  ctx.fillStyle = '#326B4E';
-  ctx.fillRect(x+6*s, y+9*s, 4*s, 1*s);
-  // Legs
-  ctx.fillStyle = '#5DB894';
-  ctx.fillRect(x+3*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+10*s, y+12*s, 3*s, 3*s);
-  ctx.fillStyle = '#4A9B7C';
-  ctx.fillRect(x+3*s, y+14*s, 3*s, 1*s);
-  ctx.fillRect(x+10*s, y+14*s, 3*s, 1*s);
-}
-
-function drawCharmander(ctx, x, y, s) {
-  // Head
-  ctx.fillStyle = '#E87840';
-  ctx.fillRect(x+4*s, y+0*s, 8*s, 7*s);
-  ctx.fillRect(x+3*s, y+1*s, 10*s, 5*s);
-  // Belly
-  ctx.fillStyle = '#F8D878';
-  ctx.fillRect(x+5*s, y+7*s, 6*s, 5*s);
-  // Body
-  ctx.fillStyle = '#E87840';
-  ctx.fillRect(x+3*s, y+6*s, 10*s, 7*s);
-  ctx.fillRect(x+5*s, y+7*s, 6*s, 4*s); // belly
-  ctx.fillStyle = '#F8D878';
-  ctx.fillRect(x+5*s, y+7*s, 6*s, 4*s);
-  // Eyes
-  ctx.fillStyle = '#40A0C0';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+6*s, y+3*s, 1*s, 2*s);
-  ctx.fillRect(x+10*s, y+3*s, 1*s, 2*s);
-  // Mouth
-  ctx.fillStyle = '#C06030';
-  ctx.fillRect(x+6*s, y+6*s, 4*s, 1*s);
-  // Arms
-  ctx.fillStyle = '#E87840';
-  ctx.fillRect(x+2*s, y+7*s, 2*s, 3*s);
-  ctx.fillRect(x+12*s, y+7*s, 2*s, 3*s);
-  // Legs
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-  // Flame tail
-  ctx.fillStyle = '#F8A030';
-  ctx.fillRect(x+12*s, y+10*s, 3*s, 2*s);
-  ctx.fillStyle = '#F85030';
-  ctx.fillRect(x+13*s, y+8*s, 2*s, 3*s);
-  ctx.fillStyle = '#F8D030';
-  ctx.fillRect(x+14*s, y+8*s, 1*s, 2*s);
-}
-
-function drawSquirtle(ctx, x, y, s) {
-  // Shell (visible behind)
-  ctx.fillStyle = '#A06830';
-  ctx.fillRect(x+3*s, y+5*s, 10*s, 8*s);
-  // Head
-  ctx.fillStyle = '#68B8D8';
-  ctx.fillRect(x+4*s, y+0*s, 8*s, 7*s);
-  ctx.fillRect(x+3*s, y+1*s, 10*s, 5*s);
-  // Body
-  ctx.fillStyle = '#68B8D8';
-  ctx.fillRect(x+4*s, y+6*s, 8*s, 7*s);
-  // Belly
-  ctx.fillStyle = '#F8F0C8';
-  ctx.fillRect(x+5*s, y+7*s, 6*s, 5*s);
-  // Eyes
-  ctx.fillStyle = '#C04040';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+5*s, y+3*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+3*s, 1*s, 1*s);
-  // Mouth
-  ctx.fillStyle = '#4898A8';
-  ctx.fillRect(x+6*s, y+6*s, 4*s, 1*s);
-  // Arms
-  ctx.fillStyle = '#68B8D8';
-  ctx.fillRect(x+2*s, y+7*s, 2*s, 3*s);
-  ctx.fillRect(x+12*s, y+7*s, 2*s, 3*s);
-  // Legs
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-  // Tail
-  ctx.fillRect(x+12*s, y+11*s, 3*s, 2*s);
-  ctx.fillRect(x+14*s, y+10*s, 1*s, 2*s);
-}
-
-function drawChikorita(ctx, x, y, s) {
-  // Leaf on head
-  ctx.fillStyle = '#48A048';
-  ctx.fillRect(x+6*s, y-2*s, 5*s, 4*s);
-  ctx.fillRect(x+8*s, y-3*s, 3*s, 2*s);
-  // Head
-  ctx.fillStyle = '#A8D8A0';
-  ctx.fillRect(x+4*s, y+1*s, 8*s, 6*s);
-  ctx.fillRect(x+3*s, y+2*s, 10*s, 4*s);
-  // Body
-  ctx.fillRect(x+4*s, y+6*s, 8*s, 7*s);
-  ctx.fillRect(x+3*s, y+7*s, 10*s, 5*s);
-  // Eyes
-  ctx.fillStyle = '#C04040';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+5*s, y+3*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+3*s, 1*s, 1*s);
-  // Necklace buds
-  ctx.fillStyle = '#48A048';
-  ctx.fillRect(x+5*s, y+7*s, 2*s, 1*s);
-  ctx.fillRect(x+9*s, y+7*s, 2*s, 1*s);
-  // Legs
-  ctx.fillStyle = '#A8D8A0';
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-function drawCyndaquil(ctx, x, y, s) {
-  // Flames on back
-  ctx.fillStyle = '#F85030';
-  ctx.fillRect(x+3*s, y+1*s, 2*s, 3*s);
-  ctx.fillRect(x+6*s, y+0*s, 2*s, 4*s);
-  ctx.fillRect(x+11*s, y+1*s, 2*s, 3*s);
-  ctx.fillStyle = '#F8D030';
-  ctx.fillRect(x+4*s, y+1*s, 1*s, 2*s);
-  ctx.fillRect(x+7*s, y+0*s, 1*s, 2*s);
-  ctx.fillRect(x+12*s, y+1*s, 1*s, 2*s);
-  // Body top (dark)
-  ctx.fillStyle = '#304868';
-  ctx.fillRect(x+3*s, y+3*s, 10*s, 5*s);
-  ctx.fillRect(x+4*s, y+2*s, 8*s, 2*s);
-  // Head/snout
-  ctx.fillStyle = '#E8D8A8';
-  ctx.fillRect(x+4*s, y+6*s, 8*s, 4*s);
-  ctx.fillRect(x+5*s, y+5*s, 6*s, 2*s);
-  // Eyes (closed/squinting)
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+6*s, 2*s, 1*s);
-  ctx.fillRect(x+9*s, y+6*s, 2*s, 1*s);
-  // Nose
-  ctx.fillStyle = '#C06030';
-  ctx.fillRect(x+7*s, y+8*s, 2*s, 1*s);
-  // Body bottom
-  ctx.fillStyle = '#E8D8A8';
-  ctx.fillRect(x+4*s, y+9*s, 8*s, 4*s);
-  // Legs
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-function drawTotodile(ctx, x, y, s) {
-  // Head
-  ctx.fillStyle = '#50A0D0';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 7*s);
-  // Red crest
-  ctx.fillStyle = '#D04040';
-  ctx.fillRect(x+6*s, y-1*s, 4*s, 2*s);
-  // Jaw
-  ctx.fillStyle = '#50A0D0';
-  ctx.fillRect(x+4*s, y+5*s, 8*s, 3*s);
-  ctx.fillStyle = '#F8F0C8';
-  ctx.fillRect(x+5*s, y+6*s, 6*s, 2*s);
-  // Teeth
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+5*s, y+5*s, 1*s, 1*s);
-  ctx.fillRect(x+7*s, y+5*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+5*s, 1*s, 1*s);
-  // Eyes
-  ctx.fillStyle = '#C04040';
-  ctx.fillRect(x+5*s, y+2*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+2*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+5*s, y+2*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+2*s, 1*s, 1*s);
-  // Body
-  ctx.fillStyle = '#50A0D0';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 5*s);
-  ctx.fillStyle = '#F8F0C8';
-  ctx.fillRect(x+5*s, y+8*s, 6*s, 3*s);
-  // Chest diamond
-  ctx.fillStyle = '#D04040';
-  ctx.fillRect(x+7*s, y+8*s, 2*s, 2*s);
-  // Arms
-  ctx.fillStyle = '#50A0D0';
-  ctx.fillRect(x+2*s, y+8*s, 2*s, 3*s);
-  ctx.fillRect(x+12*s, y+8*s, 2*s, 3*s);
-  // Legs
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-function drawTreecko(ctx, x, y, s) {
-  // Head crest (dark green ridge on top)
-  ctx.fillStyle = '#2D8C3C';
-  ctx.fillRect(x+5*s, y-1*s, 6*s, 2*s);
-  ctx.fillRect(x+6*s, y-2*s, 4*s, 2*s);
-  // Head
-  ctx.fillStyle = '#5CC85C';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 7*s);
-  ctx.fillRect(x+2*s, y+1*s, 12*s, 5*s);
-  // Head highlight
-  ctx.fillStyle = '#6ED86E';
-  ctx.fillRect(x+4*s, y+0*s, 4*s, 1*s);
-  // Eyes (large yellow with slit pupils)
-  ctx.fillStyle = '#F8D830';
-  ctx.fillRect(x+3*s, y+2*s, 4*s, 3*s);
-  ctx.fillRect(x+9*s, y+2*s, 4*s, 3*s);
-  ctx.fillStyle = '#E8C020';
-  ctx.fillRect(x+3*s, y+4*s, 4*s, 1*s);
-  ctx.fillRect(x+9*s, y+4*s, 4*s, 1*s);
-  // Pupils (vertical slits)
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+2*s, 1*s, 3*s);
-  ctx.fillRect(x+11*s, y+2*s, 1*s, 3*s);
-  // Eye shine
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+4*s, y+2*s, 1*s, 1*s);
-  ctx.fillRect(x+10*s, y+2*s, 1*s, 1*s);
-  // Mouth/jaw line
-  ctx.fillStyle = '#3A9A3A';
-  ctx.fillRect(x+5*s, y+6*s, 6*s, 1*s);
-  // Lip (small red line)
-  ctx.fillStyle = '#C84040';
-  ctx.fillRect(x+6*s, y+6*s, 4*s, 1*s);
-  // Body
-  ctx.fillStyle = '#5CC85C';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 5*s);
-  ctx.fillRect(x+5*s, y+6*s, 6*s, 7*s);
-  // Belly (red/dark red)
-  ctx.fillStyle = '#C84040';
-  ctx.fillRect(x+6*s, y+8*s, 4*s, 3*s);
-  ctx.fillStyle = '#B03030';
-  ctx.fillRect(x+6*s, y+10*s, 4*s, 1*s);
-  // Arms
-  ctx.fillStyle = '#5CC85C';
-  ctx.fillRect(x+2*s, y+7*s, 3*s, 2*s);
-  ctx.fillRect(x+11*s, y+7*s, 3*s, 2*s);
-  // Hands/fingers
-  ctx.fillStyle = '#48B048';
-  ctx.fillRect(x+1*s, y+9*s, 3*s, 1*s);
-  ctx.fillRect(x+12*s, y+9*s, 3*s, 1*s);
-  // Tail (large, distinctive)
-  ctx.fillStyle = '#48B048';
-  ctx.fillRect(x+12*s, y+5*s, 3*s, 5*s);
-  ctx.fillRect(x+13*s, y+3*s, 3*s, 4*s);
-  ctx.fillStyle = '#3A9A3A';
-  ctx.fillRect(x+14*s, y+2*s, 2*s, 3*s);
-  ctx.fillRect(x+15*s, y+1*s, 1*s, 3*s);
-  // Tail highlight
-  ctx.fillStyle = '#5CC85C';
-  ctx.fillRect(x+12*s, y+5*s, 1*s, 3*s);
-  // Legs
-  ctx.fillStyle = '#5CC85C';
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 2*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 2*s);
-  // Toes
-  ctx.fillStyle = '#48B048';
-  ctx.fillRect(x+3*s, y+14*s, 4*s, 1*s);
-  ctx.fillRect(x+9*s, y+14*s, 4*s, 1*s);
-}
-
-function drawTorchic(ctx, x, y, s) {
-  // Head feathers
-  ctx.fillStyle = '#F8A030';
-  ctx.fillRect(x+6*s, y-1*s, 4*s, 3*s);
-  ctx.fillRect(x+7*s, y-2*s, 2*s, 2*s);
-  // Head
-  ctx.fillStyle = '#F8A030';
-  ctx.fillRect(x+4*s, y+1*s, 8*s, 6*s);
-  ctx.fillRect(x+3*s, y+2*s, 10*s, 4*s);
-  // Eyes
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+5*s, y+3*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+3*s, 1*s, 1*s);
-  // Beak
-  ctx.fillStyle = '#D8A030';
-  ctx.fillRect(x+6*s, y+5*s, 4*s, 2*s);
-  ctx.fillStyle = '#C88020';
-  ctx.fillRect(x+6*s, y+6*s, 4*s, 1*s);
-  // Body
-  ctx.fillStyle = '#F8D858';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 5*s);
-  ctx.fillRect(x+5*s, y+6*s, 6*s, 7*s);
-  // Wings
-  ctx.fillStyle = '#F8A030';
-  ctx.fillRect(x+2*s, y+8*s, 3*s, 3*s);
-  ctx.fillRect(x+11*s, y+8*s, 3*s, 3*s);
-  // Feet
-  ctx.fillStyle = '#D88030';
-  ctx.fillRect(x+4*s, y+13*s, 3*s, 2*s);
-  ctx.fillRect(x+9*s, y+13*s, 3*s, 2*s);
-}
-
-function drawMudkip(ctx, x, y, s) {
-  // Head fin
-  ctx.fillStyle = '#4090C8';
-  ctx.fillRect(x+6*s, y-2*s, 4*s, 3*s);
-  ctx.fillRect(x+7*s, y-3*s, 2*s, 2*s);
-  // Head
-  ctx.fillStyle = '#58A8D8';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 7*s);
-  ctx.fillRect(x+2*s, y+1*s, 12*s, 5*s);
-  // Cheeks
-  ctx.fillStyle = '#F8A050';
-  ctx.fillRect(x+2*s, y+4*s, 3*s, 2*s);
-  ctx.fillRect(x+11*s, y+4*s, 3*s, 2*s);
-  // Eyes
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+5*s, y+3*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+3*s, 1*s, 1*s);
-  // Mouth
-  ctx.fillStyle = '#4888A0';
-  ctx.fillRect(x+6*s, y+6*s, 4*s, 1*s);
-  // Body
-  ctx.fillStyle = '#58A8D8';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 5*s);
-  // Belly
-  ctx.fillStyle = '#B8D8F0';
-  ctx.fillRect(x+5*s, y+8*s, 6*s, 3*s);
-  // Legs
-  ctx.fillStyle = '#58A8D8';
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-  // Tail fin
-  ctx.fillStyle = '#4090C8';
-  ctx.fillRect(x+12*s, y+9*s, 3*s, 3*s);
-  ctx.fillRect(x+14*s, y+8*s, 2*s, 2*s);
-}
-
-function drawTurtwig(ctx, x, y, s) {
-  // Twig on head
-  ctx.fillStyle = '#6B4F12';
-  ctx.fillRect(x+7*s, y-3*s, 2*s, 4*s);
-  ctx.fillStyle = '#48A048';
-  ctx.fillRect(x+5*s, y-3*s, 6*s, 3*s);
-  // Head
-  ctx.fillStyle = '#68B858';
-  ctx.fillRect(x+4*s, y+0*s, 8*s, 6*s);
-  ctx.fillRect(x+3*s, y+1*s, 10*s, 4*s);
-  // Eyes
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+2*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+2*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+5*s, y+2*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+2*s, 1*s, 1*s);
-  // Jaw
-  ctx.fillStyle = '#E8D880';
-  ctx.fillRect(x+5*s, y+5*s, 6*s, 2*s);
-  // Shell
-  ctx.fillStyle = '#8B6914';
-  ctx.fillRect(x+3*s, y+6*s, 10*s, 6*s);
-  ctx.fillStyle = '#6B4F12';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 4*s);
-  // Body
-  ctx.fillStyle = '#68B858';
-  ctx.fillRect(x+5*s, y+8*s, 6*s, 3*s);
-  // Legs
-  ctx.fillStyle = '#68B858';
-  ctx.fillRect(x+3*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+10*s, y+12*s, 3*s, 3*s);
-}
-
-function drawChimchar(ctx, x, y, s) {
-  // Head
-  ctx.fillStyle = '#E08840';
-  ctx.fillRect(x+4*s, y+0*s, 8*s, 7*s);
-  ctx.fillRect(x+3*s, y+1*s, 10*s, 5*s);
-  // Face
-  ctx.fillStyle = '#F8E0B0';
-  ctx.fillRect(x+5*s, y+2*s, 6*s, 5*s);
-  // Eyes
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+6*s, y+3*s, 1*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 1*s, 2*s);
-  // Nose
-  ctx.fillStyle = '#C06040';
-  ctx.fillRect(x+7*s, y+5*s, 2*s, 1*s);
-  // Ears
-  ctx.fillStyle = '#E08840';
-  ctx.fillRect(x+2*s, y+2*s, 2*s, 3*s);
-  ctx.fillRect(x+12*s, y+2*s, 2*s, 3*s);
-  // Body
-  ctx.fillStyle = '#E08840';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 5*s);
-  ctx.fillStyle = '#F8E0B0';
-  ctx.fillRect(x+5*s, y+8*s, 6*s, 3*s);
-  // Arms
-  ctx.fillStyle = '#E08840';
-  ctx.fillRect(x+2*s, y+7*s, 2*s, 4*s);
-  ctx.fillRect(x+12*s, y+7*s, 2*s, 4*s);
-  // Legs
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-  // Flame butt
-  ctx.fillStyle = '#F85030';
-  ctx.fillRect(x+12*s, y+10*s, 2*s, 2*s);
-  ctx.fillStyle = '#F8A030';
-  ctx.fillRect(x+13*s, y+9*s, 2*s, 2*s);
-}
-
-function drawPiplup(ctx, x, y, s) {
-  // Head
-  ctx.fillStyle = '#3880C0';
-  ctx.fillRect(x+4*s, y+0*s, 8*s, 7*s);
-  ctx.fillRect(x+3*s, y+1*s, 10*s, 5*s);
-  // Crown
-  ctx.fillStyle = '#2860A0';
-  ctx.fillRect(x+6*s, y-1*s, 4*s, 2*s);
-  // Face
-  ctx.fillStyle = '#F8F8F8';
-  ctx.fillRect(x+5*s, y+3*s, 6*s, 4*s);
-  // Eyes
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+6*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+6*s, y+3*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+3*s, 1*s, 1*s);
-  // Beak
-  ctx.fillStyle = '#F8C030';
-  ctx.fillRect(x+6*s, y+5*s, 4*s, 2*s);
-  // Body
-  ctx.fillStyle = '#3880C0';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 5*s);
-  // Belly
-  ctx.fillStyle = '#B8D8F0';
-  ctx.fillRect(x+5*s, y+8*s, 6*s, 3*s);
-  // Wings
-  ctx.fillStyle = '#3880C0';
-  ctx.fillRect(x+2*s, y+8*s, 2*s, 4*s);
-  ctx.fillRect(x+12*s, y+8*s, 2*s, 4*s);
-  // Feet
-  ctx.fillStyle = '#F8C030';
-  ctx.fillRect(x+4*s, y+13*s, 3*s, 2*s);
-  ctx.fillRect(x+9*s, y+13*s, 3*s, 2*s);
-}
-
-function drawSnivy(ctx, x, y, s) {
-  // Head leaf
-  ctx.fillStyle = '#48A048';
-  ctx.fillRect(x+6*s, y-2*s, 4*s, 3*s);
-  ctx.fillRect(x+4*s, y-1*s, 8*s, 2*s);
-  // Head
-  ctx.fillStyle = '#68B858';
-  ctx.fillRect(x+4*s, y+0*s, 8*s, 7*s);
-  ctx.fillRect(x+3*s, y+2*s, 10*s, 4*s);
-  // Eyes
-  ctx.fillStyle = '#C04040';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  // Nose/mouth
-  ctx.fillStyle = '#488838';
-  ctx.fillRect(x+7*s, y+5*s, 2*s, 1*s);
-  // Collar
-  ctx.fillStyle = '#F8F0A0';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 1*s);
-  // Body
-  ctx.fillStyle = '#68B858';
-  ctx.fillRect(x+5*s, y+7*s, 6*s, 5*s);
-  // Belly
-  ctx.fillStyle = '#E8F0B8';
-  ctx.fillRect(x+6*s, y+8*s, 4*s, 3*s);
-  // Arms
-  ctx.fillStyle = '#68B858';
-  ctx.fillRect(x+3*s, y+8*s, 2*s, 3*s);
-  ctx.fillRect(x+11*s, y+8*s, 2*s, 3*s);
-  // Legs
-  ctx.fillRect(x+5*s, y+12*s, 2*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 2*s, 3*s);
-  // Tail
-  ctx.fillStyle = '#48A048';
-  ctx.fillRect(x+12*s, y+10*s, 3*s, 2*s);
-  ctx.fillRect(x+14*s, y+9*s, 2*s, 3*s);
-}
-
-function drawTepig(ctx, x, y, s) {
-  // Head
-  ctx.fillStyle = '#E07040';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 7*s);
-  // Dark top
-  ctx.fillStyle = '#2C2C2C';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 3*s);
-  // Snout
-  ctx.fillStyle = '#E8B880';
-  ctx.fillRect(x+5*s, y+4*s, 6*s, 3*s);
-  // Nose
-  ctx.fillStyle = '#D07050';
-  ctx.fillRect(x+6*s, y+5*s, 4*s, 2*s);
-  ctx.fillStyle = '#C06040';
-  ctx.fillRect(x+7*s, y+5*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+5*s, 1*s, 1*s);
-  // Eyes
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+2*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+2*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+5*s, y+2*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+2*s, 1*s, 1*s);
-  // Body
-  ctx.fillStyle = '#E07040';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 4*s);
-  // Band
-  ctx.fillStyle = '#2C2C2C';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 1*s);
-  // Legs
-  ctx.fillStyle = '#2C2C2C';
-  ctx.fillRect(x+4*s, y+11*s, 3*s, 4*s);
-  ctx.fillRect(x+9*s, y+11*s, 3*s, 4*s);
-  // Tail
-  ctx.fillStyle = '#E07040';
-  ctx.fillRect(x+12*s, y+9*s, 2*s, 2*s);
-  ctx.fillStyle = '#F85030';
-  ctx.fillRect(x+14*s, y+9*s, 1*s, 1*s);
-}
-
-function drawOshawott(ctx, x, y, s) {
-  // Head
-  ctx.fillStyle = '#68B0D0';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 7*s);
-  // Face
-  ctx.fillStyle = '#F8F8F0';
-  ctx.fillRect(x+4*s, y+3*s, 8*s, 4*s);
-  // Dark triangle on head
-  ctx.fillStyle = '#305878';
-  ctx.fillRect(x+5*s, y+0*s, 6*s, 3*s);
-  ctx.fillRect(x+6*s, y+0*s, 4*s, 4*s);
-  // Eyes
-  ctx.fillStyle = '#2C2C2C';
-  ctx.fillRect(x+5*s, y+4*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+4*s, 2*s, 2*s);
-  ctx.fillStyle = '#FFF';
-  ctx.fillRect(x+5*s, y+4*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+4*s, 1*s, 1*s);
-  // Nose
-  ctx.fillStyle = '#C06040';
-  ctx.fillRect(x+7*s, y+5*s, 2*s, 1*s);
-  // Freckles
-  ctx.fillStyle = '#F0C090';
-  ctx.fillRect(x+4*s, y+5*s, 1*s, 1*s);
-  ctx.fillRect(x+11*s, y+5*s, 1*s, 1*s);
-  // Body
-  ctx.fillStyle = '#68B0D0';
-  ctx.fillRect(x+4*s, y+7*s, 8*s, 5*s);
-  // Belly
-  ctx.fillStyle = '#F8F8F0';
-  ctx.fillRect(x+5*s, y+8*s, 6*s, 3*s);
-  // Shell on belly
-  ctx.fillStyle = '#78C8E0';
-  ctx.fillRect(x+6*s, y+9*s, 4*s, 2*s);
-  // Legs/feet
-  ctx.fillStyle = '#68B0D0';
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-// Generic fallback starters for regions 6-8
-function drawGenericGrass(ctx, x, y, s) { drawBulbasaur(ctx, x, y, s); }
-function drawGenericFire(ctx, x, y, s) { drawCharmander(ctx, x, y, s); }
-function drawGenericWater(ctx, x, y, s) { drawSquirtle(ctx, x, y, s); }
-
-function drawChespin(ctx, x, y, s) {
-  ctx.fillStyle = '#68A848';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 14*s);
-  ctx.fillStyle = '#D8B870';
-  ctx.fillRect(x+5*s, y+4*s, 6*s, 5*s);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+5*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+5*s, 2*s, 2*s);
-  ctx.fillStyle = '#48A048';
-  ctx.fillRect(x+5*s, y-2*s, 6*s, 3*s);
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-function drawFennekin(ctx, x, y, s) {
-  ctx.fillStyle = '#F0C868';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 14*s);
-  // Ears
-  ctx.fillRect(x+2*s, y-2*s, 3*s, 4*s);
-  ctx.fillRect(x+11*s, y-2*s, 3*s, 4*s);
-  ctx.fillStyle = '#E07040';
-  ctx.fillRect(x+2*s, y-2*s, 2*s, 2*s);
-  ctx.fillRect(x+12*s, y-2*s, 2*s, 2*s);
-  ctx.fillStyle = '#F8F0E0';
-  ctx.fillRect(x+5*s, y+4*s, 6*s, 5*s);
-  ctx.fillStyle = '#2C2C2C';
-  ctx.fillRect(x+5*s, y+5*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+5*s, 2*s, 2*s);
-  ctx.fillRect(x+7*s, y+7*s, 2*s, 1*s);
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-function drawFroakie(ctx, x, y, s) {
-  ctx.fillStyle = '#5898C0';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 14*s);
-  // Bubble scarf
-  ctx.fillStyle = '#F8F8F8';
-  ctx.fillRect(x+3*s, y+6*s, 10*s, 3*s);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  ctx.fillStyle = '#F8C030';
-  ctx.fillRect(x+5*s, y+3*s, 1*s, 1*s);
-  ctx.fillRect(x+9*s, y+3*s, 1*s, 1*s);
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-function drawRowlet(ctx, x, y, s) {
-  ctx.fillStyle = '#B8A878';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 6*s);
-  ctx.fillStyle = '#68A048';
-  ctx.fillRect(x+3*s, y+5*s, 10*s, 8*s);
-  ctx.fillStyle = '#F8F8F0';
-  ctx.fillRect(x+4*s, y+2*s, 8*s, 5*s);
-  // Bowtie
-  ctx.fillStyle = '#48A048';
-  ctx.fillRect(x+6*s, y+6*s, 4*s, 2*s);
-  ctx.fillStyle = '#2C2C2C';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  ctx.fillStyle = '#C08030';
-  ctx.fillRect(x+7*s, y+5*s, 2*s, 1*s);
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-function drawLitten(ctx, x, y, s) {
-  ctx.fillStyle = '#2C2C2C';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 14*s);
-  ctx.fillStyle = '#E04040';
-  ctx.fillRect(x+4*s, y+1*s, 8*s, 4*s);
-  ctx.fillRect(x+4*s, y+8*s, 8*s, 2*s);
-  ctx.fillStyle = '#F8C030';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+6*s, y+3*s, 1*s, 2*s);
-  ctx.fillRect(x+10*s, y+3*s, 1*s, 2*s);
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-function drawPopplio(ctx, x, y, s) {
-  ctx.fillStyle = '#4888C0';
-  ctx.fillRect(x+3*s, y+0*s, 10*s, 14*s);
-  ctx.fillStyle = '#F8F0E8';
-  ctx.fillRect(x+4*s, y+3*s, 8*s, 5*s);
-  // Nose
-  ctx.fillStyle = '#E86880';
-  ctx.fillRect(x+6*s, y+5*s, 4*s, 3*s);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(x+5*s, y+3*s, 2*s, 2*s);
-  ctx.fillRect(x+9*s, y+3*s, 2*s, 2*s);
-  // Collar
-  ctx.fillStyle = '#78C0E8';
-  ctx.fillRect(x+3*s, y+8*s, 10*s, 2*s);
-  ctx.fillRect(x+4*s, y+12*s, 3*s, 3*s);
-  ctx.fillRect(x+9*s, y+12*s, 3*s, 3*s);
-}
-
-function drawGrookey(ctx, x, y, s) { drawChespin(ctx, x, y, s); }
-function drawScorbunny(ctx, x, y, s) { drawTorchic(ctx, x, y, s); }
-function drawSobble(ctx, x, y, s) { drawFroakie(ctx, x, y, s); }
-
-// Map of starter names to draw functions
-const STARTER_DRAWERS = {
-  bulbasaur: drawBulbasaur,
-  charmander: drawCharmander,
-  squirtle: drawSquirtle,
-  chikorita: drawChikorita,
-  cyndaquil: drawCyndaquil,
-  totodile: drawTotodile,
-  treecko: drawTreecko,
-  torchic: drawTorchic,
-  mudkip: drawMudkip,
-  turtwig: drawTurtwig,
-  chimchar: drawChimchar,
-  piplup: drawPiplup,
-  snivy: drawSnivy,
-  tepig: drawTepig,
-  oshawott: drawOshawott,
-  chespin: drawChespin,
-  fennekin: drawFennekin,
-  froakie: drawFroakie,
-  rowlet: drawRowlet,
-  litten: drawLitten,
-  popplio: drawPopplio,
-  grookey: drawGrookey,
-  scorbunny: drawScorbunny,
-  sobble: drawSobble,
+const SPRITE_DATA = {
+  bulbasaur: {
+    palette: ['#326B4E', '#5DB894', '#FFF', '#E04040', '#4A9B7C'],
+    grid: [
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,1,1,1,1,1,1,1,1,1,1],
+      [,,1,1,1,1,1,1,1,1,1,1,1,1],
+      [,,1,1,2,3,1,1,1,1,2,3,1,1],
+      [,,1,1,3,3,1,1,1,1,3,3,1,1],
+      [,,1,1,4,4,1,1,1,4,4,1,1,1],
+      [,,1,1,1,1,1,1,1,4,4,1,1,1],
+      [,,1,1,1,1,0,0,0,0,1,1,1,1],
+      [,,1,1,1,1,1,1,1,1,1,1,1,1],
+      [,,1,1,1,1,1,1,1,1,1,1,1,1],
+      [,,,1,1,1,1,1,1,1,1,1,1],
+      [,,,1,1,1,,,,,1,1,1],
+      [,,,4,4,4,,,,,4,4,4],
+      [],
+    ],
+  },
+  charmander: {
+    palette: ['#E87840', '#40A0C0', '#000', '#C06030', '#F8D878', '#F85030', '#F8D030', '#F8A030'],
+    grid: [
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,1,2,0,0,1,2,0,0],
+      [,,,0,0,1,2,0,0,1,2,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,3,3,3,3,0,0,0],
+      [,,0,0,0,4,4,4,4,4,4,0,0,0],
+      [,,0,0,0,4,4,4,4,4,4,0,0,5,6],
+      [,,0,0,0,4,4,4,4,4,4,0,0,5,6],
+      [,,,0,0,4,4,4,4,4,4,0,7,5,5],
+      [,,,0,0,0,0,0,0,0,0,0,7,7,7],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [],
+    ],
+  },
+  squirtle: {
+    palette: ['#68B8D8', '#FFF', '#C04040', '#A06830', '#4898A8', '#F8F0C8'],
+    grid: [
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,1,2,0,0,1,2,0,0],
+      [,,,0,0,2,2,0,0,2,2,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,3,0,0,4,4,4,4,0,0,3],
+      [,,0,0,0,5,5,5,5,5,5,0,0,0],
+      [,,0,0,0,5,5,5,5,5,5,0,0,0],
+      [,,0,0,0,5,5,5,5,5,5,0,0,0],
+      [,,,3,0,5,5,5,5,5,5,0,3,,0],
+      [,,,3,0,5,5,5,5,5,5,0,0,0,0],
+      [,,,3,0,0,0,0,0,0,0,0,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [],
+    ],
+  },
+  chikorita: {
+    palette: ['#48A048', '#A8D8A0', '#FFF', '#C04040'],
+    grid: [
+      [,,,,,,0,0,0,0,0],
+      [,,,,1,1,1,1,1,1,1,1],
+      [,,,1,1,1,1,1,1,1,1,1,1],
+      [,,,1,1,2,3,1,1,2,3,1,1],
+      [,,,1,1,3,3,1,1,3,3,1,1],
+      [,,,1,1,1,1,1,1,1,1,1,1],
+      [,,,,1,1,1,1,1,1,1,1],
+      [,,,1,1,0,0,1,1,0,0,1,1],
+      [,,,1,1,1,1,1,1,1,1,1,1],
+      [,,,1,1,1,1,1,1,1,1,1,1],
+      [,,,1,1,1,1,1,1,1,1,1,1],
+      [,,,1,1,1,1,1,1,1,1,1,1],
+      [,,,,1,1,1,1,1,1,1,1],
+      [,,,,1,1,1,,,1,1,1],
+      [,,,,1,1,1,,,1,1,1],
+      [],
+    ],
+  },
+  cyndaquil: {
+    palette: ['#F85030', '#F8D030', '#304868', '#E8D8A8', '#000', '#C06030'],
+    grid: [
+      [,,,,,,0,1],
+      [,,,0,1,,0,1,,,,0,1],
+      [,,,0,2,2,2,2,2,2,2,2,1],
+      [,,,2,2,2,2,2,2,2,2,2,2],
+      [,,,2,2,2,2,2,2,2,2,2,2],
+      [,,,2,2,3,3,3,3,3,3,2,2],
+      [,,,2,3,4,4,3,3,4,4,3,2],
+      [,,,2,3,3,3,3,3,3,3,3,2],
+      [,,,,3,3,3,5,5,3,3,3],
+      [,,,,3,3,3,3,3,3,3,3],
+      [,,,,3,3,3,3,3,3,3,3],
+      [,,,,3,3,3,3,3,3,3,3],
+      [,,,,3,3,3,3,3,3,3,3],
+      [,,,,3,3,3,,,3,3,3],
+      [,,,,3,3,3,,,3,3,3],
+      [],
+    ],
+  },
+  totodile: {
+    palette: ['#50A0D0', '#D04040', '#FFF', '#C04040', '#F8F0C8'],
+    grid: [
+      [,,,0,0,0,1,1,1,1,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,2,3,0,0,2,3,0,0],
+      [,,,0,0,3,3,0,0,3,3,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,2,0,2,0,2,0,0,0],
+      [,,,0,0,4,4,4,4,4,4,0,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,0,0,0,4,4,1,1,4,4,0,0,0],
+      [,,0,0,0,4,4,1,1,4,4,0,0,0],
+      [,,0,0,0,4,4,4,4,4,4,0,0,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [],
+    ],
+  },
+  treecko: {
+    palette: ['#5CC85C', '#6ED86E', '#3A9A3A', '#F8D830', '#FFF', '#000', '#48B048', '#E8C020', '#C84040', '#B03030'],
+    grid: [
+      [,,,0,1,1,1,1,0,0,0,0,0],
+      [,,0,0,0,0,0,0,0,0,0,0,0,0,,2],
+      [,,0,3,4,5,3,0,0,3,4,5,3,0,2,2],
+      [,,0,3,3,5,3,0,0,3,3,5,3,6,2,2],
+      [,,0,7,7,5,7,0,0,7,7,5,7,6,2,2],
+      [,,0,0,0,0,0,0,0,0,0,0,0,6,6,6],
+      [,,,0,0,0,0,0,0,0,0,0,0,6,6,6],
+      [,,0,0,0,0,0,0,0,0,0,0,0,6,6],
+      [,,0,0,0,0,8,8,8,8,0,0,6,6,6],
+      [,6,6,6,0,0,8,8,8,8,0,0,6,6,6],
+      [,,,,0,0,9,9,9,9,0,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,6,6,6,6,,,6,6,6,6],
+      [],
+    ],
+  },
+  torchic: {
+    palette: ['#F8A030', '#FFF', '#000', '#D8A030', '#F8D858', '#D88030'],
+    grid: [
+      [,,,,,,0,0,0,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,1,2,0,0,1,2,0,0],
+      [,,,0,0,2,2,0,0,2,2,0,0],
+      [,,,0,0,0,3,3,3,3,0,0,0],
+      [,,,,0,4,4,4,4,4,4,0],
+      [,,,,4,4,4,4,4,4,4,4],
+      [,,0,0,0,4,4,4,4,4,4,0,0,0],
+      [,,0,0,0,4,4,4,4,4,4,0,0,0],
+      [,,0,0,0,4,4,4,4,4,4,0,0,0],
+      [,,,,4,4,4,4,4,4,4,4],
+      [,,,,,4,4,4,4,4,4],
+      [,,,,5,5,5,,,5,5,5],
+      [,,,,5,5,5,,,5,5,5],
+      [],
+    ],
+  },
+  mudkip: {
+    palette: ['#58A8D8', '#FFF', '#000', '#F8A050', '#4888A0', '#B8D8F0', '#4090C8'],
+    grid: [
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,0,0,0,0,0,0,0,0,0,0,0,0],
+      [,,0,0,0,0,0,0,0,0,0,0,0,0],
+      [,,0,0,0,1,2,0,0,1,2,0,0,0],
+      [,,3,3,3,2,2,0,0,2,2,3,3,3],
+      [,,3,3,3,0,0,0,0,0,0,3,3,3],
+      [,,,0,0,0,4,4,4,4,0,0,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,,0,5,5,5,5,5,5,0,,,6,6],
+      [,,,,0,5,5,5,5,5,5,0,6,6,6,6],
+      [,,,,0,5,5,5,5,5,5,0,6,6,6],
+      [,,,,0,0,0,0,0,0,0,0,6,6,6],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [],
+    ],
+  },
+  turtwig: {
+    palette: ['#68B858', '#FFF', '#000', '#E8D880', '#8B6914', '#6B4F12'],
+    grid: [
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,1,2,0,0,1,2,0,0],
+      [,,,0,0,2,2,0,0,2,2,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,,0,3,3,3,3,3,3,0],
+      [,,,4,4,4,4,4,4,4,4,4,4],
+      [,,,4,5,5,5,5,5,5,5,5,4],
+      [,,,4,5,0,0,0,0,0,0,5,4],
+      [,,,4,5,0,0,0,0,0,0,5,4],
+      [,,,4,5,0,0,0,0,0,0,5,4],
+      [,,,4,4,4,4,4,4,4,4,4,4],
+      [,,,0,0,0,,,,,0,0,0],
+      [,,,0,0,0,,,,,0,0,0],
+      [,,,0,0,0,,,,,0,0,0],
+      [],
+    ],
+  },
+  chimchar: {
+    palette: ['#E08840', '#F8E0B0', '#000', '#C06040', '#F8A030', '#F85030'],
+    grid: [
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,0,0,0,1,1,1,1,1,1,0,0,0],
+      [,,0,0,0,1,2,1,1,2,1,0,0,0],
+      [,,0,0,0,1,2,1,1,2,1,0,0,0],
+      [,,,0,0,1,1,3,3,1,1,0,0],
+      [,,,,0,1,1,1,1,1,1,0],
+      [,,0,0,0,0,0,0,0,0,0,0,0,0],
+      [,,0,0,0,1,1,1,1,1,1,0,0,0],
+      [,,0,0,0,1,1,1,1,1,1,0,0,4,4],
+      [,,0,0,0,1,1,1,1,1,1,0,5,4,4],
+      [,,,,0,0,0,0,0,0,0,0,5,5],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [],
+    ],
+  },
+  piplup: {
+    palette: ['#3880C0', '#2860A0', '#F8F8F8', '#FFF', '#000', '#F8C030', '#B8D8F0'],
+    grid: [
+      [,,,,0,0,1,1,1,1,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,2,3,4,2,3,4,0,0],
+      [,,,0,0,2,4,4,2,4,4,0,0],
+      [,,,0,0,2,5,5,5,5,2,0,0],
+      [,,,,0,2,5,5,5,5,2,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,0,0,0,6,6,6,6,6,6,0,0,0],
+      [,,0,0,0,6,6,6,6,6,6,0,0,0],
+      [,,0,0,0,6,6,6,6,6,6,0,0,0],
+      [,,0,0,0,0,0,0,0,0,0,0,0,0],
+      [],
+      [,,,,5,5,5,,,5,5,5],
+      [,,,,5,5,5,,,5,5,5],
+      [],
+    ],
+  },
+  snivy: {
+    palette: ['#68B858', '#C04040', '#488838', '#F8F0A0', '#E8F0B8', '#48A048'],
+    grid: [
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,1,1,0,0,1,1,0,0],
+      [,,,0,0,1,1,0,0,1,1,0,0],
+      [,,,0,0,0,0,2,2,0,0,0,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,,3,0,0,0,0,0,0,3],
+      [,,,0,0,0,4,4,4,4,0,0,0],
+      [,,,0,0,0,4,4,4,4,0,0,0,,5,5],
+      [,,,0,0,0,4,4,4,4,0,0,5,5,5,5],
+      [,,,,,0,0,0,0,0,0,,5,5,5,5],
+      [,,,,,0,0,,,0,0],
+      [,,,,,0,0,,,0,0],
+      [,,,,,0,0,,,0,0],
+      [],
+    ],
+  },
+  tepig: {
+    palette: ['#2C2C2C', '#FFF', '#000', '#E07040', '#E8B880', '#D07050', '#C06040', '#F85030'],
+    grid: [
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,1,2,0,0,1,2,0,0],
+      [,,,3,3,2,2,3,3,2,2,3,3],
+      [,,,3,3,4,4,4,4,4,4,3,3],
+      [,,,3,3,4,5,6,5,6,4,3,3],
+      [,,,3,3,4,5,5,5,5,4,3,3],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,,3,3,3,3,3,3,3,3],
+      [,,,,3,3,3,3,3,3,3,3,3,3,7],
+      [,,,,3,3,3,3,3,3,3,3,3,3],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [],
+    ],
+  },
+  oshawott: {
+    palette: ['#68B0D0', '#305878', '#F8F8F0', '#FFF', '#2C2C2C', '#F0C090', '#C06040', '#78C8E0'],
+    grid: [
+      [,,,0,0,1,1,1,1,1,1,0,0],
+      [,,,0,0,1,1,1,1,1,1,0,0],
+      [,,,0,0,1,1,1,1,1,1,0,0],
+      [,,,0,2,2,1,1,1,1,2,2,0],
+      [,,,0,2,3,4,2,2,3,4,2,0],
+      [,,,0,5,4,4,6,6,4,4,5,0],
+      [,,,0,2,2,2,2,2,2,2,2,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,,0,2,2,2,2,2,2,0],
+      [,,,,0,2,7,7,7,7,2,0],
+      [,,,,0,2,7,7,7,7,2,0],
+      [,,,,0,0,0,0,0,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [,,,,0,0,0,,,0,0,0],
+      [],
+    ],
+  },
+  chespin: {
+    palette: ['#68A848', '#48A048', '#D8B870', '#000'],
+    grid: [
+      [,,,0,0,1,1,1,1,1,1,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,2,2,2,2,2,2,0,0],
+      [,,,0,0,3,3,2,2,3,3,0,0],
+      [,,,0,0,3,3,2,2,3,3,0,0],
+      [,,,0,0,2,2,2,2,2,2,0,0],
+      [,,,0,0,2,2,2,2,2,2,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,1,1,1,0,0,1,1,1,0],
+      [,,,0,1,1,1,0,0,1,1,1,0],
+      [,,,,1,1,1,,,1,1,1],
+      [],
+    ],
+  },
+  fennekin: {
+    palette: ['#F0C868', '#F8F0E0', '#2C2C2C'],
+    grid: [
+      [,,0,0,0,0,0,0,0,0,0,0,0,0],
+      [,,0,0,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,1,1,1,1,1,1,0,0],
+      [,,,0,0,2,2,1,1,2,2,0,0],
+      [,,,0,0,2,2,1,1,2,2,0,0],
+      [,,,0,0,1,1,2,2,1,1,0,0],
+      [,,,0,0,1,1,1,1,1,1,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,2,2,2,0,0,2,2,2,0],
+      [,,,0,2,2,2,0,0,2,2,2,0],
+      [,,,,2,2,2,,,2,2,2],
+      [],
+    ],
+  },
+  froakie: {
+    palette: ['#5898C0', '#F8C030', '#000', '#F8F8F8'],
+    grid: [
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,1,2,0,0,1,2,0,0],
+      [,,,0,0,2,2,0,0,2,2,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,3,3,3,3,3,3,3,3,3,3],
+      [,,,3,3,3,3,3,3,3,3,3,3],
+      [,,,3,3,3,3,3,3,3,3,3,3],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,1,1,1,0,0,1,1,1,0],
+      [,,,0,1,1,1,0,0,1,1,1,0],
+      [,,,,1,1,1,,,1,1,1],
+      [],
+    ],
+  },
+  rowlet: {
+    palette: ['#B8A878', '#F8F8F0', '#2C2C2C', '#68A048', '#C08030', '#48A048'],
+    grid: [
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,1,1,1,1,1,1,1,1,0],
+      [,,,0,1,2,2,1,1,2,2,1,0],
+      [,,,0,1,2,2,1,1,2,2,1,0],
+      [,,,3,1,1,1,4,4,1,1,1,3],
+      [,,,3,1,1,5,5,5,5,1,1,3],
+      [,,,3,3,3,5,5,5,5,3,3,3],
+      [,,,3,3,3,3,3,3,3,3,3,3],
+      [,,,3,3,3,3,3,3,3,3,3,3],
+      [,,,3,3,3,3,3,3,3,3,3,3],
+      [,,,3,3,3,3,3,3,3,3,3,3],
+      [,,,3,4,4,4,3,3,4,4,4,3],
+      [,,,,4,4,4,,,4,4,4],
+      [,,,,4,4,4,,,4,4,4],
+      [],
+    ],
+  },
+  litten: {
+    palette: ['#2C2C2C', '#E04040', '#F8C030', '#000'],
+    grid: [
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,1,1,1,1,1,1,1,1,0],
+      [,,,0,1,1,1,1,1,1,1,1,0],
+      [,,,0,1,2,3,1,1,2,3,1,0],
+      [,,,0,1,2,3,1,1,2,3,1,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,1,1,1,1,1,1,1,1,0],
+      [,,,0,1,1,1,1,1,1,1,1,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,3,3,3,0,0,3,3,3,0],
+      [,,,0,3,3,3,0,0,3,3,3,0],
+      [,,,,3,3,3,,,3,3,3],
+      [],
+    ],
+  },
+  popplio: {
+    palette: ['#4888C0', '#F8F0E8', '#000', '#E86880', '#78C0E8'],
+    grid: [
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,1,2,2,1,1,2,2,1,0],
+      [,,,0,1,2,2,1,1,2,2,1,0],
+      [,,,0,1,1,3,3,3,3,1,1,0],
+      [,,,0,1,1,3,3,3,3,1,1,0],
+      [,,,0,1,1,3,3,3,3,1,1,0],
+      [,,,4,4,4,4,4,4,4,4,4,4],
+      [,,,4,4,4,4,4,4,4,4,4,4],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,0,0,0,0,0,0,0,0,0],
+      [,,,0,4,4,4,0,0,4,4,4,0],
+      [,,,0,4,4,4,0,0,4,4,4,0],
+      [,,,,4,4,4,,,4,4,4],
+      [],
+    ],
+  },
 };
+
+// === GENERIC SPRITE RENDERER ===
+
+function drawFromData(ctx, x, y, s, data) {
+  const { palette, grid } = data;
+  for (let row = 0; row < grid.length; row++) {
+    const r = grid[row];
+    for (let col = 0; col < r.length; col++) {
+      const colorIdx = r[col];
+      if (colorIdx != null) {
+        ctx.fillStyle = palette[colorIdx];
+        ctx.fillRect(x + col * s, y + row * s, s, s);
+      }
+    }
+  }
+}
+
+// === STARTER DRAWERS (built from data + aliases) ===
+
+const STARTER_DRAWERS = {};
+for (const [name, data] of Object.entries(SPRITE_DATA)) {
+  STARTER_DRAWERS[name] = (ctx, x, y, s) => drawFromData(ctx, x, y, s, data);
+}
+
+// Aliases: these Pokemon reuse another Pokemon's sprite
+STARTER_DRAWERS.genericGrass = STARTER_DRAWERS.bulbasaur;
+STARTER_DRAWERS.genericFire = STARTER_DRAWERS.charmander;
+STARTER_DRAWERS.genericWater = STARTER_DRAWERS.squirtle;
+STARTER_DRAWERS.grookey = STARTER_DRAWERS.chespin;
+STARTER_DRAWERS.scorbunny = STARTER_DRAWERS.torchic;
+STARTER_DRAWERS.sobble = STARTER_DRAWERS.froakie;
 
 // === AUTO-OUTLINE + CACHING SYSTEM ===
 // Draws each Pokemon at 1x on an offscreen canvas, auto-generates
