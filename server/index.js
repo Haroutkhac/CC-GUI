@@ -467,7 +467,7 @@ io.on('connection', (socket) => {
   socket.emit('ai:conflicts', aiOrchestrator.getConflicts());
   socket.emit('ai:pr-statuses', aiOrchestrator.getPRStatus());
 
-  socket.on('terminal:attach', (sessionId) => {
+  socket.on('terminal:attach', async (sessionId) => {
     const session = store.getSession(sessionId);
     if (!session) {
       socket.emit('terminal:error', { sessionId, error: 'Session not found' });
@@ -485,7 +485,7 @@ io.on('connection', (socket) => {
       // Don't re-spawn a process that already exited — show previous output instead
       if (session.status === 'exited' || session.status === 'completed') {
         socket.join(`session:${sessionId}`);
-        const scrollback = terminalManager.getScrollback(sessionId);
+        const scrollback = await terminalManager.getScrollback(sessionId);
         if (scrollback) {
           socket.emit('terminal:data', { sessionId, data: scrollback });
         }
@@ -599,7 +599,7 @@ io.on('connection', (socket) => {
 
     socket.join(`session:${sessionId}`);
 
-    const scrollback = terminalManager.getScrollback(sessionId);
+    const scrollback = await terminalManager.getScrollback(sessionId);
     if (scrollback) {
       socket.emit('terminal:data', { sessionId, data: scrollback });
     }
