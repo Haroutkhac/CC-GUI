@@ -115,7 +115,12 @@ export function registerRoutes(app, { store, aiOrchestrator, worktreeManager, te
   });
 
   app.patch('/api/sessions/:id', (req, res) => {
-    const session = store.updateSession(req.params.id, req.body);
+    const allowedFields = ['name', 'command'];
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+    const session = store.updateSession(req.params.id, updates);
     if (!session) return res.status(404).json({ error: 'not found' });
     io.emit('sessions:updated', store.getSessions());
     res.json(session);
