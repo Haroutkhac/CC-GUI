@@ -28,6 +28,12 @@ export class Store {
       }
     } catch (e) {
       console.warn('Failed to load store from primary file:', e.message);
+    }
+
+    // If primary was missing or failed to load, try the backup
+    const isDefault = Object.keys(this.data.projects).length === 0
+      && Object.keys(this.data.sessions).length === 0;
+    if (isDefault) {
       const bakPath = this.filePath + '.bak';
       try {
         if (fs.existsSync(bakPath)) {
@@ -50,8 +56,12 @@ export class Store {
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
         // Keep a backup of the current file before overwriting
-        if (fs.existsSync(this.filePath)) {
-          fs.copyFileSync(this.filePath, this.filePath + '.bak');
+        try {
+          if (fs.existsSync(this.filePath)) {
+            fs.copyFileSync(this.filePath, this.filePath + '.bak');
+          }
+        } catch (backupErr) {
+          console.warn('Failed to create backup (continuing with save):', backupErr.message);
         }
 
         // Atomic write: write to temp file, then rename into place
