@@ -61,7 +61,7 @@ export class TranscriptWatcher {
       try {
         // Use polling interval for macOS reliability (fs.watch can miss events)
         entry.watcher = fs.watch(entry.path, { persistent: false }, () => {
-          this._readNewLines(sessionId, entry);
+          this._readNewLines(sessionId, entry).catch(() => {});
         });
 
         entry.watcher.on('error', () => {
@@ -75,28 +75,28 @@ export class TranscriptWatcher {
             clearInterval(entry.pollTimer);
           }
           entry.pollTimer = setInterval(() => {
-            this._readNewLines(sessionId, entry);
+            this._readNewLines(sessionId, entry).catch(() => {});
           }, 1000);
         });
       } catch {
         // Fallback to polling
         entry.pollTimer = setInterval(() => {
-          this._readNewLines(sessionId, entry);
+          this._readNewLines(sessionId, entry).catch(() => {});
         }, 1000);
       }
 
       // Also poll periodically as a safety net (macOS fs.watch can be unreliable)
       if (!entry.pollTimer) {
         entry.pollTimer = setInterval(() => {
-          this._readNewLines(sessionId, entry);
+          this._readNewLines(sessionId, entry).catch(() => {});
         }, 2000);
       }
 
       // Read any existing content
-      this._readNewLines(sessionId, entry);
+      this._readNewLines(sessionId, entry).catch(() => {});
     };
 
-    tryWatch();
+    tryWatch().catch(() => {});
   }
 
   async _readNewLines(sessionId, entry) {
