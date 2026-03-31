@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { authFetch } from '../authFetch.js';
 import '@xterm/xterm/css/xterm.css';
 
 export default function TerminalOverlay({
@@ -117,7 +118,7 @@ export default function TerminalOverlay({
                     reader.onload = () => resolve(reader.result.split(',')[1]);
                     reader.readAsDataURL(blob);
                   });
-                  const res = await fetch('/api/upload-image', {
+                  const res = await authFetch('/api/upload-image', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ data: base64, mimeType: imageType }),
@@ -213,7 +214,7 @@ export default function TerminalOverlay({
             reader.onload = () => resolve(reader.result.split(',')[1]);
             reader.readAsDataURL(blob);
           });
-          const res = await fetch('/api/upload-image', {
+          const res = await authFetch('/api/upload-image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: base64, mimeType: item.type }),

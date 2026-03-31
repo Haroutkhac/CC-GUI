@@ -17,20 +17,44 @@ import { StateDetector } from './state-detector.js';
 import { registerRoutes } from './routes.js';
 import { registerSocketHandlers } from './socket-handlers.js';
 import { wireNotifications } from './notification-wiring.js';
+import { loadOrCreateToken, authMiddleware, socketAuthMiddleware } from './auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv.includes('--production');
 
+const authToken = loadOrCreateToken();
+
+const allowedOrigins = [
+  'http://localhost:5173',   // Vite dev server
+  'http://localhost:3456',   // Production
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3456',
+];
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*' },
+  cors: { origin: allowedOrigins, credentials: true },
   maxHttpBufferSize: 1e8,
 });
 
-app.use(cors());
+io.use(socketAuthMiddleware(authToken));
+
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json({ limit: '20mb' }));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+// Auth-token endpoint — only serves token to localhost connections (no auth required)
+app.get('/api/auth-token', (req, res) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') {
+    res.json({ token: authToken });
+  } else {
+    res.status(403).json({ error: 'Token only available from localhost' });
+  }
+});
+
+app.use(authMiddleware(authToken));
 
 // Image paste upload — saves base64 image to temp file, returns absolute path
 app.post('/api/upload-image', async (req, res) => {
@@ -142,6 +166,8 @@ const PORT = process.env.PORT || 3456;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  CC Gym server running on http://localhost:${PORT}`);
   console.log(`  Network access: http://${getNetworkIP()}:${PORT}`);
+  console.log(`  Auth token: ${authToken}`);
+  console.log(`  Token file: ~/.cc-gui/auth-token`);
   console.log(`  AI Orchestrator: auto-respond ${aiOrchestrator.autoRespondEnabled ? 'ON' : 'OFF'}`);
   console.log(`  Git Monitor: active (polling every 15s)\n`);
   aiOrchestrator.startGitMonitor();
