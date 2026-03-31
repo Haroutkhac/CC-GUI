@@ -15,7 +15,7 @@ export function loadOrCreateToken() {
   try {
     if (fs.existsSync(TOKEN_PATH)) {
       const token = fs.readFileSync(TOKEN_PATH, 'utf-8').trim();
-      if (token.length >= 32) return token;
+      if (token.length >= 64) return token;
     }
   } catch {}
 
@@ -44,7 +44,11 @@ export function authMiddleware(token) {
     }
 
     const provided = authHeader.slice(7);
-    if (!crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(token))) {
+    try {
+      if (!crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(token))) {
+        return res.status(403).json({ error: 'Invalid token' });
+      }
+    } catch {
       return res.status(403).json({ error: 'Invalid token' });
     }
 
