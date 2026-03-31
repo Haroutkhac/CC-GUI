@@ -69,6 +69,20 @@ describe('TranscriptWatcher._processEvent', () => {
     expect(entry.state).toBeNull();
   });
 
+  it('tool_use takes priority over thinking when both present', () => {
+    const { watcher, onStateChange, entry } = setup();
+    watcher._processEvent('s1', entry, {
+      type: 'assistant',
+      message: {
+        content: [
+          { type: 'thinking', thinking: 'Let me think...' },
+          { type: 'tool_use', name: 'read_file' },
+        ],
+      },
+    });
+    expect(entry.state).toBe('tool_running');
+  });
+
   it('does not emit if state unchanged', () => {
     const { watcher, onStateChange, entry } = setup();
     entry.state = 'thinking';

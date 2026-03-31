@@ -23,6 +23,7 @@ describe('StateDetector._resolveAndEmit', () => {
     ['active', 'thinking', 'working', 'thinking', 'PTY active, transcript thinking → working (transcript wins)'],
     ['active', 'tool_running', 'working', 'tool_running', 'PTY active, transcript tool_running → working'],
     ['active', 'waiting', 'waiting', 'waiting', 'PTY active, transcript waiting → waiting'],
+    [null, null, 'active', 'idle', 'Both null → idle/active'],
   ];
 
   for (const [pty, transcript, expectedStatus, expectedGranular, desc] of cases) {
