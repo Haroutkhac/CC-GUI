@@ -1,8 +1,8 @@
 import { PtyLogger } from './pty-logger.js';
 import { TranscriptWatcher } from './transcript-watcher.js';
-import { stripAnsi, extractOSC, STATUS_BUFFER_LIMIT } from './utils.js';
+import { stripAnsi, extractOSC, STATUS_BUFFER_LIMIT, TITLE_BUSY_PREFIXES, TITLE_IDLE_PREFIX } from './utils.js';
 
-// Braille spinner chars used by Claude Code
+// Braille spinner chars used by Claude Code (from constants/figures.ts)
 const SPINNER_PATTERN = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/;
 const SPINNER_COOLDOWN_MS = 2000;
 
@@ -10,7 +10,11 @@ const SPINNER_COOLDOWN_MS = 2000;
 const STATE_TO_STATUS = {
   thinking: 'working',
   tool_running: 'working',
+  responding: 'working',
+  compacting: 'working',
+  api_retry: 'working',
   working: 'working',
+  error: 'waiting',       // errors need attention — map to waiting
   waiting: 'waiting',
   idle: 'active',
   active: 'active',
@@ -23,7 +27,7 @@ export class StateDetector {
     this.onStatusChange = options.onStatusChange || (() => {});
     this.ptyLogger = new PtyLogger();
     this.transcriptWatcher = new TranscriptWatcher({
-      onStateChange: (sessionId, state) => this._onTranscriptState(sessionId, state),
+      onStateChange: (sessionId, state, detail) => this._onTranscriptState(sessionId, state, detail),
     });
     this.sessions = new Map(); // sessionId -> session detection state
     this.statusBuffers = {};
@@ -34,10 +38,14 @@ export class StateDetector {
       this.sessions.set(sessionId, {
         ptyState: null,
         transcriptState: null,
+        transcriptDetail: null,
+        // Session metadata from transcript init event
+        sessionMeta: null,
         resolvedStatus: 'active',
         granularState: 'idle',
         lastSpinnerTime: 0,
         cooldownTimer: null,
+        _lastEmittedDetail: null,
       });
     }
     return this.sessions.get(sessionId);
@@ -66,6 +74,7 @@ export class StateDetector {
       state.lastClearTime = Date.now();
       // Clear stale transcript state (old end_turn is irrelevant after /clear)
       state.transcriptState = null;
+      state.transcriptDetail = null;
       this._setPtyState(sessionId, 'active');
       return;
     }
@@ -99,10 +108,27 @@ export class StateDetector {
       return;
     }
 
-    // 2. OSC title extraction — check for status info in terminal title
+    // 2. OSC title extraction — check for Claude Code's actual title prefixes
+    //    From screens/REPL.tsx: busy titles start with ⠂ or ⠐ (animating),
+    //    idle titles start with ✳ (static)
     const oscTitles = extractOSC(buf);
     if (oscTitles.length > 0) {
       const lastTitle = oscTitles[oscTitles.length - 1];
+
+      // Check Claude Code's actual title animation prefixes (most reliable)
+      if (TITLE_BUSY_PREFIXES.some(p => lastTitle.startsWith(p))) {
+        this._setPtyState(sessionId, 'working');
+        return;
+      }
+      if (lastTitle.startsWith(TITLE_IDLE_PREFIX)) {
+        // Idle title — but don't override if transcript has a more specific state
+        if (!state.transcriptState || state.transcriptState === 'waiting' || state.transcriptState === 'idle') {
+          this._setPtyState(sessionId, 'active');
+        }
+        return;
+      }
+
+      // Fallback: keyword matching for non-standard title formats
       if (/thinking|working/i.test(lastTitle)) {
         this._setPtyState(sessionId, 'working');
         return;
@@ -147,19 +173,38 @@ export class StateDetector {
     // clear stale transcript "waiting" so the resolved status updates immediately
     if (state.ptyState === 'waiting' && ptyState !== 'waiting' && state.transcriptState === 'waiting') {
       state.transcriptState = null;
+      state.transcriptDetail = null;
     }
 
     state.ptyState = ptyState;
     this._resolveAndEmit(sessionId);
   }
 
-  _onTranscriptState(sessionId, transcriptState) {
+  _onTranscriptState(sessionId, transcriptState, detail) {
     const state = this._getSession(sessionId);
+
+    // null state = metadata-only update (e.g., init event)
+    if (transcriptState === null) {
+      if (detail) {
+        // Store session metadata from init events
+        if (detail.model || detail.claudeVersion || detail.permissionMode) {
+          state.sessionMeta = {
+            ...(state.sessionMeta || {}),
+            model: detail.model || state.sessionMeta?.model,
+            claudeVersion: detail.claudeVersion || state.sessionMeta?.claudeVersion,
+            permissionMode: detail.permissionMode || state.sessionMeta?.permissionMode,
+          };
+        }
+      }
+      return;
+    }
+
     // Real work from transcript clears the post-clear suppression
-    if (transcriptState === 'thinking' || transcriptState === 'tool_running') {
+    if (transcriptState === 'thinking' || transcriptState === 'tool_running' || transcriptState === 'responding') {
       state.lastClearTime = 0;
     }
     state.transcriptState = transcriptState;
+    state.transcriptDetail = detail || null;
     this._resolveAndEmit(sessionId);
   }
 
@@ -187,10 +232,15 @@ export class StateDetector {
     }
 
     const newStatus = STATE_TO_STATUS[granularState] || 'active';
-    if (newStatus !== state.resolvedStatus) {
+    const detail = state.transcriptDetail;
+    const detailChanged = detail &&
+      JSON.stringify(detail) !== JSON.stringify(state._lastEmittedDetail);
+
+    if (newStatus !== state.resolvedStatus || detailChanged) {
       state.resolvedStatus = newStatus;
       state.granularState = granularState;
-      this.onStatusChange(sessionId, newStatus, granularState);
+      state._lastEmittedDetail = detail;
+      this.onStatusChange(sessionId, newStatus, granularState, detail);
     }
   }
 
@@ -200,10 +250,22 @@ export class StateDetector {
     return state?.resolvedStatus || 'active';
   }
 
-  // Get granular state (thinking, tool_running, waiting, idle, etc.)
+  // Get granular state (thinking, tool_running, responding, compacting, waiting, idle, etc.)
   getGranularState(sessionId) {
     const state = this.sessions.get(sessionId);
     return state?.granularState || state?.ptyState || 'idle';
+  }
+
+  // Get transcript detail (toolName, errorType, etc.)
+  getDetail(sessionId) {
+    const state = this.sessions.get(sessionId);
+    return state?.transcriptDetail || null;
+  }
+
+  // Get session metadata (model, version, permission mode) from init event
+  getSessionMeta(sessionId) {
+    const state = this.sessions.get(sessionId);
+    return state?.sessionMeta || null;
   }
 
   // Get full cleaned buffer (cached — avoids redundant stripAnsi calls)
