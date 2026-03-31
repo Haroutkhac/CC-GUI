@@ -106,6 +106,9 @@ export class Summarizer {
     const sessionIds = [...this.pendingSessions];
     this.pendingSessions.clear();
 
+    // Access raw ConflictDetector diffs (including rawDiff, changedFiles, files)
+    // rather than the sanitized getDiffs() which strips rawDiff. The summarizer
+    // needs changedFiles and per-file stats for richer prompt context.
     const diffs = this._getDiffs();
 
     const digests = sessionIds

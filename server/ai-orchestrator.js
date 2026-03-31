@@ -33,6 +33,9 @@ export class AIOrchestrator {
     this.onCoordination = null;
     this.onAutoRespond = null;
 
+    // NOTE: These callbacks read this.onChange/onDiffsChange/etc. at call time (late-binding).
+    // wireNotifications() sets these properties after construction, which works because
+    // the closures capture `this` and dereference the property when invoked, not when defined.
     this.summarizer.onChange = () => this.onChange?.();
     this.conflictDetector.onDiffsChange = () => this.onDiffsChange?.();
     this.conflictDetector.onConflictsChange = () => this.onConflictsChange?.();
@@ -104,6 +107,7 @@ export class AIOrchestrator {
 
     // Trigger immediate git poll on meaningful state changes
     if (['waiting', 'exited'].includes(newStatus)) {
+      // _gitPoll has its own internal guard for missing gitMonitor/store
       this.conflictDetector._gitPoll();
     }
   }
