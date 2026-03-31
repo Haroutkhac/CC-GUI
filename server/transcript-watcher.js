@@ -1,3 +1,4 @@
+import './types.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -18,6 +19,11 @@ export class TranscriptWatcher {
     return path.join(os.homedir(), '.claude', 'projects', encoded, `${claudeSessionId}.jsonl`);
   }
 
+  /**
+   * @param {string} sessionId
+   * @param {string} cwd
+   * @param {string} claudeSessionId
+   */
   watch(sessionId, cwd, claudeSessionId) {
     // Stop any existing watcher for this session
     this.stop(sessionId);
@@ -130,6 +136,11 @@ export class TranscriptWatcher {
     }
   }
 
+  /**
+   * @param {string} sessionId
+   * @param {Object} entry
+   * @param {Object} event
+   */
   _processEvent(sessionId, entry, event) {
     let newState = null;
 

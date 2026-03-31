@@ -1,3 +1,4 @@
+import './types.js';
 import pty from 'node-pty';
 import os from 'os';
 import fs from 'fs';
@@ -52,6 +53,12 @@ export class TerminalManager {
     }
   }
 
+  /**
+   * @param {string} sessionId
+   * @param {string} command
+   * @param {string[]} args
+   * @param {{cwd?: string, onData?: (data: string) => void, onExit?: (exitCode: number) => void}} options
+   */
   create(sessionId, command, args = [], options = {}) {
     const { cwd, onData, onExit } = options;
 
@@ -121,6 +128,10 @@ export class TerminalManager {
     return this.terminals.get(sessionId);
   }
 
+  /**
+   * @param {string} sessionId
+   * @param {string} data
+   */
   write(sessionId, data) {
     const entry = this.terminals.get(sessionId);
     if (entry) {
@@ -139,6 +150,10 @@ export class TerminalManager {
     }
   }
 
+  /**
+   * @param {string} sessionId
+   * @returns {Promise<string|null>}
+   */
   async getScrollback(sessionId) {
     const entry = this.terminals.get(sessionId);
     if (entry) return entry.scrollback;
