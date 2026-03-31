@@ -1,6 +1,7 @@
 // AI Orchestrator: always-on manager that summarizes sessions, auto-responds,
 // monitors git diffs, detects conflicts, coordinates agents, and creates PRs.
 
+import './types.js';
 import { execFile } from 'child_process';
 import { stripAnsi, capitalize } from './utils.js';
 
@@ -75,6 +76,11 @@ export class AIOrchestrator {
 
   // ========== TERMINAL INGESTION ==========
 
+  /**
+   * @param {string} sessionId
+   * @param {string} rawData
+   * @param {SessionMeta} meta
+   */
   ingest(sessionId, rawData, meta) {
     const clean = stripAnsi(rawData);
     this.buffers[sessionId] = ((this.buffers[sessionId] || '') + clean).slice(-MAX_OUTPUT_CHARS * 2);
@@ -83,6 +89,11 @@ export class AIOrchestrator {
     }
   }
 
+  /**
+   * @param {string} sessionId
+   * @param {string} newStatus
+   * @param {SessionMeta} meta
+   */
   onStatusChange(sessionId, newStatus, meta) {
     if (meta) {
       this.sessionMeta[sessionId] = { ...this.sessionMeta[sessionId], ...meta };
@@ -111,6 +122,11 @@ export class AIOrchestrator {
 
   // ========== AUTO-RESPOND ==========
 
+  /**
+   * @param {string} sessionId
+   * @param {string} cleanTail
+   * @returns {boolean}
+   */
   checkAutoRespond(sessionId, cleanTail) {
     if (!this.autoRespondEnabled) return false;
 
@@ -395,6 +411,10 @@ export class AIOrchestrator {
 
   // ========== PR CREATION ==========
 
+  /**
+   * @param {string} sessionId
+   * @returns {Promise<{success: boolean, url?: string, error?: string}>}
+   */
   async createPR(sessionId) {
     const session = this.store?.getSession(sessionId);
     if (!session || !session.worktreePath || !session.branch) {
@@ -706,6 +726,7 @@ Respond ONLY with the JSON array, nothing else:`;
 
   // ========== PUBLIC GETTERS ==========
 
+  /** @returns {Object<string, SummaryResult>} */
   getSummaries() {
     return { ...this.summaries };
   }

@@ -1,3 +1,4 @@
+import './types.js';
 import { PtyLogger } from './pty-logger.js';
 import { TranscriptWatcher } from './transcript-watcher.js';
 import { stripAnsi, extractOSC, STATUS_BUFFER_LIMIT, TITLE_BUSY_PREFIXES, TITLE_IDLE_PREFIX } from './utils.js';
@@ -24,6 +25,7 @@ const STATE_TO_STATUS = {
 
 export class StateDetector {
   constructor(options = {}) {
+    /** @type {(sessionId: string, newStatus: string, granularState: string) => void} */
     this.onStatusChange = options.onStatusChange || (() => {});
     this.ptyLogger = new PtyLogger();
     this.transcriptWatcher = new TranscriptWatcher({
@@ -33,6 +35,10 @@ export class StateDetector {
     this.statusBuffers = {};
   }
 
+  /**
+   * @param {string} sessionId
+   * @returns {DetectionState}
+   */
   _getSession(sessionId) {
     if (!this.sessions.has(sessionId)) {
       this.sessions.set(sessionId, {
@@ -56,7 +62,11 @@ export class StateDetector {
     this.transcriptWatcher.watch(sessionId, cwd, claudeSessionId);
   }
 
-  // Main entry point: called on each raw PTY data chunk
+  /**
+   * Main entry point: called on each raw PTY data chunk.
+   * @param {string} sessionId
+   * @param {string} rawData
+   */
   ingest(sessionId, rawData) {
     this.ptyLogger.log(sessionId, rawData);
 
@@ -208,6 +218,7 @@ export class StateDetector {
     this._resolveAndEmit(sessionId);
   }
 
+  /** @param {string} sessionId */
   _resolveAndEmit(sessionId) {
     const state = this._getSession(sessionId);
 
