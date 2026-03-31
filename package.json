@@ -8,7 +8,9 @@
     "dev:server": "node server/index.js",
     "dev:client": "vite",
     "build": "vite build",
-    "start": "node server/index.js --production"
+    "start": "node server/index.js --production",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
@@ -27,6 +29,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "concurrently": "^9.0.1",
     "react-scan": "^0.5.3",
-    "vite": "^5.4.6"
+    "vite": "^5.4.6",
+    "vitest": "^4.1.2"
   }
 }
