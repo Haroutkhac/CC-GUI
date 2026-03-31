@@ -62,6 +62,11 @@ export function useSocket() {
       if (disposed) return;
       tokenRef.current = token;
 
+      if (!token) {
+        console.warn('No auth token available — skipping socket connection to avoid reconnect loop');
+        return;
+      }
+
       socket = io(window.location.origin, {
         transports: ['websocket', 'polling'],
         auth: { token },
