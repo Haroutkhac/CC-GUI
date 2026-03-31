@@ -5,7 +5,6 @@ import cors from 'cors';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
-import { execFile } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
 import { TerminalManager } from './terminal-manager.js';
@@ -15,36 +14,21 @@ import { AIOrchestrator } from './ai-orchestrator.js';
 import { WorktreeManager } from './worktree-manager.js';
 import { GitMonitor } from './git-monitor.js';
 import { StateDetector } from './state-detector.js';
-import { buildSafeModeConfig, classifyCommand, capitalize } from './utils.js';
+import { registerRoutes } from './routes.js';
+import { registerSocketHandlers } from './socket-handlers.js';
+import { wireNotifications } from './notification-wiring.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv.includes('--production');
-const safeModeConfig = buildSafeModeConfig(process.env);
-
-function isAllowedOrigin(origin) {
-  if (!origin) return true;
-  if (safeModeConfig.allowedOrigins.length === 0) return true;
-  return safeModeConfig.allowedOrigins.includes(origin);
-}
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: (origin, callback) => {
-      if (isAllowedOrigin(origin)) callback(null, true);
-      else callback(new Error(`Origin not allowed: ${origin}`));
-    },
-  },
+  cors: { origin: '*' },
   maxHttpBufferSize: 1e8,
 });
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (isAllowedOrigin(origin)) callback(null, true);
-    else callback(new Error(`Origin not allowed: ${origin}`));
-  },
-}));
+app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
@@ -67,601 +51,17 @@ app.post('/api/upload-image', async (req, res) => {
   }
 });
 
+// --- Dependency instantiation ---
 const dataDir = path.join(__dirname, '..', 'data');
 const store = new Store(path.join(dataDir, 'store.json'));
 const terminalManager = new TerminalManager({ dataDir });
 const stateDetector = new StateDetector();
 const orchestrator = new Orchestrator({ stateDetector });
 const gitMonitor = new GitMonitor();
-const aiOrchestrator = new AIOrchestrator({ terminalManager, gitMonitor, store, safeModeConfig });
+const aiOrchestrator = new AIOrchestrator({ terminalManager, gitMonitor, store });
 const worktreeManager = new WorktreeManager();
 const sessionSummaries = {};
-const waitingNotified = new Set(); // Track sessions that have already sent "needs input" this turn
-
-// Wire up StateDetector status change callback (needs aiOrchestrator + io)
-stateDetector.onStatusChange = (sessionId, newStatus, granularState, detail) => {
-  const session = store.getSession(sessionId);
-  if (!session) return;
-
-  // Check auto-respond for Y/n prompts before setting waiting status
-  if (newStatus === 'waiting') {
-    const tail = stateDetector.getCleanTail(sessionId);
-    if (/\(Y\/n\)\s*$/i.test(tail)) {
-      const autoResponded = aiOrchestrator.checkAutoRespond(sessionId, tail);
-      if (autoResponded) return; // Don't set waiting — we already responded
-    }
-  }
-
-  // Clear the waiting-notified flag only after the session has done real work
-  if (newStatus === 'working') {
-    waitingNotified.delete(sessionId);
-  }
-
-  // Store granular state and detail for frontend display
-  const sessionUpdate = { status: newStatus, granularState };
-  if (detail) {
-    sessionUpdate.stateDetail = detail;
-  }
-  store.updateSession(sessionId, sessionUpdate);
-  io.emit('sessions:updated', store.getSessions());
-
-  // Notify AI orchestrator of status changes
-  const proj = store.getProject(session.projectId);
-  aiOrchestrator.onStatusChange(sessionId, newStatus, {
-    sessionName: session.name,
-    projectName: proj?.name,
-    projectId: session.projectId,
-  });
-
-  // Notify for waiting state (input needed) — only once per turn
-  if (newStatus === 'waiting' && !waitingNotified.has(sessionId)) {
-    waitingNotified.add(sessionId);
-    const starterName = session.starter
-      ? capitalize(session.starter)
-      : session.name;
-    io.emit('notification', {
-      sessionId,
-      type: 'input_needed',
-      message: `${starterName} needs your input!`,
-      projectId: session.projectId,
-    });
-  }
-};
-
-// On server startup, reset sessions that claim to be running but have no pty
-// (happens after server crash/restart — ptys are in-memory only)
-for (const session of store.getSessions()) {
-  const commandMeta = classifyCommand(session.command || 'claude');
-  const normalization = {};
-  if (session.sessionType !== commandMeta.sessionType) normalization.sessionType = commandMeta.sessionType;
-  if (session.baseCommand !== commandMeta.baseCommand) normalization.baseCommand = commandMeta.baseCommand;
-  if (session.unsafeCommand !== commandMeta.unsafeCommand) normalization.unsafeCommand = commandMeta.unsafeCommand;
-  if (session.status === 'active' || session.status === 'working' || session.status === 'waiting') {
-    normalization.status = 'idle';
-  }
-  if (Object.keys(normalization).length > 0) {
-    store.updateSession(session.id, normalization);
-  }
-}
-
-// Broadcast orchestrator state whenever priorities change
-orchestrator.onChange = () => {
-  io.emit('orchestrator:update', orchestrator.getRanked());
-};
-
-// Broadcast AI summaries whenever they update
-aiOrchestrator.onChange = () => {
-  io.emit('ai:summaries', aiOrchestrator.getSummaries());
-};
-
-// Broadcast diffs/branch status whenever they update
-aiOrchestrator.onDiffsChange = () => {
-  io.emit('ai:diffs', aiOrchestrator.getDiffs());
-  io.emit('ai:branches', aiOrchestrator.getBranchStatus());
-};
-
-// Broadcast conflicts whenever they change
-aiOrchestrator.onConflictsChange = () => {
-  const conflicts = aiOrchestrator.getConflicts();
-  io.emit('ai:conflicts', conflicts);
-
-  // Emit notifications for new merge conflicts
-  for (const [projectId, data] of Object.entries(conflicts)) {
-    for (const mc of (data.mergeConflicts || [])) {
-      const sA = store.getSession(mc.sessionA);
-      const sB = store.getSession(mc.sessionB);
-      if (!sA || !sB) continue;
-      const nameA = sA.starter ? capitalize(sA.starter) : sA.name;
-      const nameB = sB.starter ? capitalize(sB.starter) : sB.name;
-      const files = mc.conflicts.map(c => c.file).join(', ');
-      io.emit('notification', {
-        type: 'conflict',
-        message: `Merge conflict: ${nameA} vs ${nameB} in ${files}`,
-        projectId,
-        sessionId: mc.sessionA,
-      });
-    }
-  }
-};
-
-// Broadcast PR status updates
-aiOrchestrator.onPRStatus = (status) => {
-  io.emit('ai:pr-status', status);
-};
-
-// Broadcast coordination messages
-aiOrchestrator.onCoordination = (entry) => {
-  io.emit('ai:coordination', entry);
-};
-
-// Broadcast auto-responses as they happen
-aiOrchestrator.onAutoRespond = (entry) => {
-  const session = store.getSession(entry.sessionId);
-  const starterName = session?.starter
-    ? capitalize(session.starter)
-    : session?.name || 'Agent';
-  io.emit('ai:auto-response', entry);
-  io.emit('notification', {
-    sessionId: entry.sessionId,
-    type: 'auto_responded',
-    message: `Auto-approved for ${starterName}: ${entry.prompt.slice(-80)}`,
-    projectId: session?.projectId,
-  });
-  console.log(`[Auto-respond] ${starterName}: Y → ${entry.prompt.slice(-80)}`);
-};
-
-// Serve static files in production
-if (isProduction) {
-  app.use(express.static(path.join(__dirname, '..', 'dist')));
-}
-
-// --- REST API ---
-
-app.get('/api/projects', (req, res) => {
-  res.json(store.getProjects());
-});
-
-app.post('/api/projects', (req, res) => {
-  const { name, path: projectPath } = req.body;
-  if (!name || !projectPath) {
-    return res.status(400).json({ error: 'name and path required' });
-  }
-  const resolved = path.resolve(projectPath.replace(/^~/, os.homedir()));
-  if (!fs.existsSync(resolved)) {
-    return res.status(400).json({ error: `Path does not exist: ${resolved}` });
-  }
-  const project = store.createProject(name, resolved);
-  io.emit('projects:updated', store.getProjects());
-  res.json(project);
-});
-
-app.delete('/api/projects/:id', async (req, res) => {
-  const project = store.getProject(req.params.id);
-  if (!project) return res.status(404).json({ error: 'not found' });
-
-  const sessions = store.getSessionsByProject(req.params.id);
-  for (const session of sessions) {
-    terminalManager.kill(session.id);
-    // Clean up git worktree and branch
-    if (session.worktreePath) {
-      await worktreeManager.remove(project.path, session.worktreePath);
-      await worktreeManager.removeBranch(project.path, session.branch);
-    }
-    cleanupSessionState(session.id);
-    store.deleteSession(session.id);
-  }
-
-  store.deleteProject(req.params.id);
-  io.emit('projects:updated', store.getProjects());
-  io.emit('sessions:updated', store.getSessions());
-  res.json({ ok: true });
-});
-
-app.get('/api/sessions', (req, res) => {
-  res.json(store.getSessions());
-});
-
-app.post('/api/sessions', async (req, res) => {
-  const { projectId, name, command } = req.body;
-  const project = store.getProject(projectId);
-  if (!project) return res.status(404).json({ error: 'project not found' });
-  if (!fs.existsSync(project.path)) {
-    return res.status(400).json({ error: `Project path does not exist: ${project.path}` });
-  }
-
-  const session = store.createSession(projectId, name || 'New Session', command);
-
-  // Create a git worktree for this session so it gets an isolated copy of the repo
-  try {
-    if (await worktreeManager.isGitRepo(project.path)) {
-      const shortId = session.id.slice(0, 8);
-      const branch = `cc-gui/${session.starter}-${shortId}`;
-      const worktreePath = await worktreeManager.create(project.path, session.id, branch);
-      store.updateSession(session.id, { worktreePath, branch });
-      Object.assign(session, { worktreePath, branch });
-    }
-  } catch (err) {
-    console.warn(`Worktree creation failed for session ${session.id}, using project path:`, err.message);
-  }
-
-  io.emit('sessions:updated', store.getSessions());
-  io.emit('projects:updated', store.getProjects());
-  res.json(session);
-});
-
-app.delete('/api/sessions/:id', async (req, res) => {
-  const session = store.getSession(req.params.id);
-  const project = session ? store.getProject(session.projectId) : null;
-
-  terminalManager.kill(req.params.id);
-
-  // Clean up git worktree and branch
-  if (session?.worktreePath && project) {
-    await worktreeManager.remove(project.path, session.worktreePath);
-    await worktreeManager.removeBranch(project.path, session.branch);
-  }
-
-  store.deleteSession(req.params.id);
-  cleanupSessionState(req.params.id);
-  io.emit('sessions:updated', store.getSessions());
-  io.emit('projects:updated', store.getProjects());
-  res.json({ ok: true });
-});
-
-app.patch('/api/sessions/:id', (req, res) => {
-  const session = store.updateSession(req.params.id, req.body);
-  if (!session) return res.status(404).json({ error: 'not found' });
-  io.emit('sessions:updated', store.getSessions());
-  res.json(session);
-});
-
-// --- Git & Orchestrator API ---
-
-app.get('/api/sessions/:id/diff', async (req, res) => {
-  const detail = aiOrchestrator.getDiffDetail(req.params.id);
-  if (!detail) return res.json({ files: [], rawDiff: '', summary: 'No data yet' });
-  res.json(detail);
-});
-
-app.get('/api/sessions/:id/branch', (req, res) => {
-  const status = aiOrchestrator.getBranchStatus();
-  res.json(status[req.params.id] || { commitCount: 0, commits: [], base: 'main' });
-});
-
-app.get('/api/projects/:id/conflicts', (req, res) => {
-  const conflicts = aiOrchestrator.getConflicts();
-  res.json(conflicts[req.params.id] || { overlaps: [], mergeConflicts: [] });
-});
-
-app.post('/api/sessions/:id/create-pr', async (req, res) => {
-  const result = await aiOrchestrator.createPR(req.params.id);
-  if (result.success) {
-    io.emit('sessions:updated', store.getSessions());
-  }
-  res.json(result);
-});
-
-app.post('/api/projects/:id/create-prs', async (req, res) => {
-  const result = await aiOrchestrator.createAllPRs(req.params.id);
-  if (result.success) {
-    io.emit('sessions:updated', store.getSessions());
-  }
-  res.json(result);
-});
-
-app.post('/api/sessions/:id/coordinate', (req, res) => {
-  const { message } = req.body;
-  if (!message) return res.status(400).json({ error: 'message required' });
-  const sent = aiOrchestrator.sendCoordinationMessage(req.params.id, message);
-  res.json({ sent });
-});
-
-app.get('/api/orchestrator/status', (req, res) => {
-  res.json({
-    ...aiOrchestrator.getStatus(),
-    conflicts: aiOrchestrator.getConflicts(),
-    prStatus: aiOrchestrator.getPRStatus(),
-    safeModeConfig: {
-      safeMode: safeModeConfig.safeMode,
-      host: safeModeConfig.host,
-      allowedOrigins: safeModeConfig.allowedOrigins,
-      protectedAgentCommands: safeModeConfig.protectedAgentCommands,
-      defaultSessionCommand: safeModeConfig.defaultSessionCommand,
-    },
-  });
-});
-
-// --- Discovery API ---
-
-// Cache discovery results for 30s
-let discoveryCache = null;
-let discoveryCacheTime = 0;
-const CACHE_TTL = 30000;
-
-function runCommand(cmd, args, timeout = 10000) {
-  return new Promise((resolve) => {
-    execFile(cmd, args, { timeout, maxBuffer: 1024 * 1024, env: { ...process.env, PATH: `${os.homedir()}/.local/bin:${process.env.PATH}` } }, (err, stdout) => {
-      // Return stdout even on error (find exits non-zero on permission-denied dirs but still has results)
-      resolve(stdout || '');
-    });
-  });
-}
-
-app.get('/api/discover', async (req, res) => {
-  const now = Date.now();
-  if (discoveryCache && now - discoveryCacheTime < CACHE_TTL) {
-    return res.json(discoveryCache);
-  }
-
-  const home = os.homedir();
-  const existingPaths = new Set(store.getProjects().map(p => p.path));
-
-  // Run local scan and GitHub list in parallel
-  const [localOutput, ghOutput] = await Promise.all([
-    runCommand('find', [
-      home, '-maxdepth', '3', '-name', '.git', '-type', 'd',
-      '-not', '-path', '*/node_modules/*',
-      '-not', '-path', '*/.nvm/*',
-      '-not', '-path', '*/.npm/*',
-      '-not', '-path', '*/.cache/*',
-      '-not', '-path', '*/.Trash/*',
-    ], 8000),
-    runCommand('gh', ['repo', 'list', '--json', 'name,nameWithOwner,url', '--limit', '50'], 10000),
-  ]);
-
-  // Parse local repos
-  const local = localOutput
-    .split('\n')
-    .filter(Boolean)
-    .map(gitDir => {
-      const repoPath = path.dirname(gitDir);
-      const name = path.basename(repoPath);
-      return { name, path: repoPath, source: 'local' };
-    })
-    .filter(r => r.name !== '.' && !r.path.includes('/.'))
-    .filter(r => !existingPaths.has(r.path));
-
-  // Parse GitHub repos
-  let github = [];
-  try {
-    const repos = JSON.parse(ghOutput || '[]');
-    // Check which ones are already cloned locally
-    const localPaths = new Map(local.map(l => [l.name.toLowerCase(), l.path]));
-    github = repos.map(r => {
-      const localPath = localPaths.get(r.name.toLowerCase());
-      return {
-        name: r.name,
-        nameWithOwner: r.nameWithOwner,
-        url: r.url,
-        path: localPath || null,
-        source: localPath ? 'both' : 'github',
-      };
-    }).filter(r => !existingPaths.has(r.path));
-  } catch (e) {
-    console.warn('GitHub discovery unavailable:', e.message);
-  }
-
-  // Merge: local repos that aren't in GitHub list + all GitHub repos
-  const githubNames = new Set(github.map(g => g.name.toLowerCase()));
-  const localOnly = local.filter(l => !githubNames.has(l.name.toLowerCase()));
-
-  const result = { local: localOnly, github };
-  discoveryCache = result;
-  discoveryCacheTime = now;
-  res.json(result);
-});
-
-// --- Socket.IO ---
-
-io.on('connection', (socket) => {
-  console.log(`Client connected: ${socket.id}`);
-
-  socket.emit('projects:updated', store.getProjects());
-  socket.emit('sessions:updated', store.getSessions());
-  socket.emit('sessions:summaries', sessionSummaries);
-  socket.emit('orchestrator:update', orchestrator.getRanked());
-  socket.emit('ai:summaries', aiOrchestrator.getSummaries());
-  socket.emit('ai:status', aiOrchestrator.getStatus());
-  socket.emit('ai:diffs', aiOrchestrator.getDiffs());
-  socket.emit('ai:branches', aiOrchestrator.getBranchStatus());
-  socket.emit('ai:conflicts', aiOrchestrator.getConflicts());
-  socket.emit('ai:pr-statuses', aiOrchestrator.getPRStatus());
-
-  socket.on('terminal:attach', async (sessionId) => {
-    const session = store.getSession(sessionId);
-    if (!session) {
-      socket.emit('terminal:error', { sessionId, error: 'Session not found' });
-      return;
-    }
-
-    const project = store.getProject(session.projectId);
-    if (!project) {
-      socket.emit('terminal:error', { sessionId, error: 'Project not found' });
-      return;
-    }
-
-    let term = terminalManager.get(sessionId);
-    if (!term) {
-      // Don't re-spawn a process that already exited — show previous output instead
-      if (session.status === 'exited' || session.status === 'completed') {
-        socket.join(`session:${sessionId}`);
-        const scrollback = await terminalManager.getScrollback(sessionId);
-        if (scrollback) {
-          socket.emit('terminal:data', { sessionId, data: scrollback });
-        }
-        socket.emit('terminal:exit', { sessionId, code: session.exitCode ?? 0 });
-        socket.emit('terminal:attached', { sessionId });
-        return;
-      }
-
-      const cmd = (session.command || 'claude').trim();
-      if (!cmd) {
-        socket.emit('terminal:error', { sessionId, error: 'No command specified' });
-        return;
-      }
-      const parts = cmd.split(/\s+/);
-      let command = parts[0];
-      let commandArgs = parts.slice(1);
-      const commandMeta = classifyCommand(cmd);
-      const isClaudeCmd = command === 'claude';
-
-      store.updateSession(sessionId, {
-        sessionType: commandMeta.sessionType,
-        baseCommand: commandMeta.baseCommand,
-        unsafeCommand: commandMeta.unsafeCommand,
-      });
-
-      if (isClaudeCmd && session.claudeSessionId) {
-        // Re-spawning after crash: resume the previous Claude conversation
-        commandArgs = ['--resume', session.claudeSessionId];
-      } else if (isClaudeCmd && !session.claudeSessionId) {
-        // First spawn: pin a session ID so we can resume after crashes
-        commandArgs.push('--session-id', sessionId);
-        store.updateSession(sessionId, { claudeSessionId: sessionId });
-      }
-
-      try {
-        const cwd = session.worktreePath || project.path;
-        // Validate cwd exists — non-existent cwd causes silent exit code 1
-        if (!fs.existsSync(cwd)) {
-          socket.emit('terminal:error', {
-            sessionId,
-            error: `Project path does not exist: ${cwd}`,
-          });
-          return;
-        }
-        term = terminalManager.create(sessionId, command, commandArgs, {
-          cwd,
-          onData: (data) => {
-            io.to(`session:${sessionId}`).emit('terminal:data', { sessionId, data });
-            stateDetector.ingest(sessionId, data);
-            extractSummary(sessionId);
-            const sess = store.getSession(sessionId);
-            const proj = sess ? store.getProject(sess.projectId) : null;
-            const meta = {
-              sessionName: sess?.name,
-              projectName: proj?.name,
-              projectId: sess?.projectId,
-            };
-            orchestrator.ingest(sessionId, data, meta);
-            aiOrchestrator.ingest(sessionId, data, meta);
-          },
-          onExit: (code) => {
-            const sess = store.getSession(sessionId);
-            // Session may have been deleted before exit fired — skip if gone
-            if (!sess) return;
-            const exitStatus = code === 0 ? 'completed' : 'exited';
-            store.updateSession(sessionId, { status: exitStatus, exitCode: code });
-            io.to(`session:${sessionId}`).emit('terminal:exit', { sessionId, code });
-            io.emit('sessions:updated', store.getSessions());
-
-            // Clean up per-session tracking state
-            cleanupSessionState(sessionId);
-
-            const meta = {
-              exitCode: code,
-              sessionName: sess.name,
-              projectName: store.getProject(sess.projectId)?.name,
-              projectId: sess.projectId,
-            };
-            orchestrator.onStatusChange(sessionId, exitStatus, meta);
-            aiOrchestrator.onStatusChange(sessionId, exitStatus, meta);
-
-            // Notify on completion
-            if (exitStatus === 'completed') {
-              const starterName = sess.starter
-                ? capitalize(sess.starter)
-                : sess.name;
-              io.emit('notification', {
-                sessionId,
-                type: 'completed',
-                message: `${starterName} finished the task!`,
-                projectId: sess.projectId,
-              });
-            }
-          },
-        });
-
-        // Start transcript watcher for Claude sessions
-        const storedClaudeId = store.getSession(sessionId)?.claudeSessionId;
-        if (storedClaudeId) {
-          stateDetector.watchTranscript(sessionId, cwd, storedClaudeId);
-        }
-      } catch (err) {
-        console.error(`Failed to spawn terminal for session ${sessionId}:`, err.message);
-        socket.emit('terminal:error', { sessionId, error: `Failed to start terminal: ${err.message}` });
-        return;
-      }
-
-      store.updateSession(sessionId, { status: 'active' });
-      io.emit('sessions:updated', store.getSessions());
-    }
-
-    socket.join(`session:${sessionId}`);
-
-    const scrollback = await terminalManager.getScrollback(sessionId);
-    if (scrollback) {
-      socket.emit('terminal:data', { sessionId, data: scrollback });
-    }
-
-    socket.emit('terminal:attached', { sessionId });
-  });
-
-  socket.on('terminal:detach', (sessionId) => {
-    socket.leave(`session:${sessionId}`);
-  });
-
-  socket.on('terminal:input', ({ sessionId, data }) => {
-    if (typeof data !== 'string') return;
-    try {
-      terminalManager.write(sessionId, data);
-    } catch (e) {
-      socket.emit('terminal:error', { sessionId, error: 'Failed to write' });
-    }
-  });
-
-  socket.on('terminal:resize', ({ sessionId, cols, rows }) => {
-    if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols <= 0 || rows <= 0) return;
-    terminalManager.resize(sessionId, cols, rows);
-  });
-
-  // AI Orchestrator controls
-  socket.on('ai:toggle-auto-respond', () => {
-    aiOrchestrator.autoRespondEnabled = !aiOrchestrator.autoRespondEnabled;
-    io.emit('ai:status', aiOrchestrator.getStatus());
-    console.log(`[AI Orchestrator] Auto-respond ${aiOrchestrator.autoRespondEnabled ? 'enabled' : 'disabled'}`);
-  });
-
-  socket.on('ai:refresh', () => {
-    aiOrchestrator.refreshAll();
-  });
-
-  socket.on('ai:toggle-coordination', () => {
-    aiOrchestrator.coordinationEnabled = !aiOrchestrator.coordinationEnabled;
-    io.emit('ai:status', aiOrchestrator.getStatus());
-    console.log(`[AI Orchestrator] Coordination ${aiOrchestrator.coordinationEnabled ? 'enabled' : 'disabled'}`);
-  });
-
-  socket.on('ai:create-pr', async ({ sessionId }) => {
-    if (!sessionId) return;
-    const result = await aiOrchestrator.createPR(sessionId);
-    if (result.success) {
-      io.emit('sessions:updated', store.getSessions());
-    }
-  });
-
-  socket.on('ai:create-all-prs', async ({ projectId }) => {
-    if (!projectId) return;
-    const result = await aiOrchestrator.createAllPRs(projectId);
-    if (result.success) {
-      io.emit('sessions:updated', store.getSessions());
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
-  });
-});
+const waitingNotified = new Set();
 
 // Clean up all per-session tracking state (used on delete and exit)
 function cleanupSessionState(sessionId) {
@@ -673,7 +73,6 @@ function cleanupSessionState(sessionId) {
 }
 
 // Session summaries — extract last meaningful output line per session
-// (Called from onData after stateDetector.ingest handles status detection)
 function extractSummary(sessionId) {
   const clean = stateDetector.getCleanBuffer(sessionId);
   if (!clean) return;
@@ -684,6 +83,26 @@ function extractSummary(sessionId) {
     sessionSummaries[sessionId] = lastLine;
     io.emit('sessions:summaries', sessionSummaries);
   }
+}
+
+// --- Wire notifications, routes, and socket handlers ---
+wireNotifications(io, { store, stateDetector, orchestrator, aiOrchestrator, waitingNotified });
+registerRoutes(app, { store, aiOrchestrator, worktreeManager, terminalManager, io, cleanupSessionState });
+registerSocketHandlers(io, { store, terminalManager, stateDetector, orchestrator, aiOrchestrator, worktreeManager, sessionSummaries, waitingNotified, cleanupSessionState, extractSummary });
+
+// On server startup, reset sessions that claim to be running but have no pty
+for (const session of store.getSessions()) {
+  if (session.status === 'active' || session.status === 'working' || session.status === 'waiting') {
+    store.updateSession(session.id, { status: 'idle' });
+  }
+}
+
+// Serve static files in production
+if (isProduction) {
+  app.use(express.static(path.join(__dirname, '..', 'dist')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+  });
 }
 
 // Get local IP
@@ -697,12 +116,6 @@ function getNetworkIP() {
     }
   }
   return 'localhost';
-}
-
-if (isProduction) {
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
-  });
 }
 
 // Graceful shutdown - kill all pty processes
@@ -719,7 +132,6 @@ function shutdown(signal) {
     console.log('  Server closed.');
     process.exit(0);
   });
-  // Force exit after 5s
   setTimeout(() => process.exit(1), 5000);
 }
 
@@ -727,17 +139,9 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3456;
-server.listen(PORT, safeModeConfig.host, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  CC Gym server running on http://localhost:${PORT}`);
-  console.log(`  Bound host: ${safeModeConfig.host}`);
-  if (safeModeConfig.host !== '127.0.0.1') {
-    console.log(`  Network access: http://${getNetworkIP()}:${PORT}`);
-  }
-  if (safeModeConfig.safeMode) {
-    console.log('  OpenAI Safe Mode: ON');
-    console.log(`  Allowed origins: ${safeModeConfig.allowedOrigins.join(', ')}`);
-  }
-  console.log(`  Default session command: ${safeModeConfig.defaultSessionCommand}`);
+  console.log(`  Network access: http://${getNetworkIP()}:${PORT}`);
   console.log(`  AI Orchestrator: auto-respond ${aiOrchestrator.autoRespondEnabled ? 'ON' : 'OFF'}`);
   console.log(`  Git Monitor: active (polling every 15s)\n`);
   aiOrchestrator.startGitMonitor();
