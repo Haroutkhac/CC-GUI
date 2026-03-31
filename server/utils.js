@@ -128,6 +128,11 @@ export const TITLE_BUSY_PREFIXES = ['⠂', '⠐'];
 // When Claude is idle/waiting, the title uses this static prefix
 export const TITLE_IDLE_PREFIX = '✳';
 
+// Capitalize the first letter of a string
+export function capitalize(str) {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+}
+
 // Buffer size constants
 export const SCROLLBACK_LIMIT = 100000;    // 100KB per terminal session
 export const STATUS_BUFFER_LIMIT = 4000;   // For status detection in server

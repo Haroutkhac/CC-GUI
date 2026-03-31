@@ -1,17 +1,8 @@
 // Pokemon-authentic pixel art sprites
 // Targeting Pokemon FireRed/LeafGreen GBA aesthetic
 
-// === REGIONS & STARTERS ===
-export const REGIONS = [
-  { name: 'Kanto', starters: ['bulbasaur', 'charmander', 'squirtle'] },
-  { name: 'Johto', starters: ['chikorita', 'cyndaquil', 'totodile'] },
-  { name: 'Hoenn', starters: ['treecko', 'torchic', 'mudkip'] },
-  { name: 'Sinnoh', starters: ['turtwig', 'chimchar', 'piplup'] },
-  { name: 'Unova', starters: ['snivy', 'tepig', 'oshawott'] },
-  { name: 'Kalos', starters: ['chespin', 'fennekin', 'froakie'] },
-  { name: 'Alola', starters: ['rowlet', 'litten', 'popplio'] },
-  { name: 'Galar', starters: ['grookey', 'scorbunny', 'sobble'] },
-];
+// === REGIONS & STARTERS (re-exported from shared) ===
+export { REGIONS } from '../../shared/constants.js';
 
 // === POKEMON DRAWING FUNCTIONS ===
 

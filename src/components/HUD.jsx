@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import { capitalize } from '../../shared/constants.js';
 
 export default function HUD({ projects, sessions, connected, aiStatus, orchestratorQueue, notificationCount, onCreateProject, onOpenOrchestrator, onToggleNotifications, notificationsOpen }) {
   const activeCount = sessions.filter(s => s.status === 'active' || s.status === 'working').length;
   const waitingSessions = sessions.filter(s => s.status === 'waiting');
   const waitingCount = waitingSessions.length;
-  const waitingNames = waitingSessions.map(s => { const name = s.starter || 'unknown'; return name.charAt(0).toUpperCase() + name.slice(1); });
+  const waitingNames = waitingSessions.map(s => capitalize(s.starter || 'unknown'));
   const urgentCount = (orchestratorQueue || []).filter(q => q.priority >= 3).length;
   const protectedSessions = sessions.filter(s => s.sessionType === 'protected_agent').length;
   const [showKeys, setShowKeys] = useState(false);

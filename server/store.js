@@ -2,17 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuid } from 'uuid';
 import { classifyCommand, getDefaultSessionCommand } from './utils.js';
-
-const REGIONS = [
-  { name: 'Kanto', starters: ['bulbasaur', 'charmander', 'squirtle'] },
-  { name: 'Johto', starters: ['chikorita', 'cyndaquil', 'totodile'] },
-  { name: 'Hoenn', starters: ['treecko', 'torchic', 'mudkip'] },
-  { name: 'Sinnoh', starters: ['turtwig', 'chimchar', 'piplup'] },
-  { name: 'Unova', starters: ['snivy', 'tepig', 'oshawott'] },
-  { name: 'Kalos', starters: ['chespin', 'fennekin', 'froakie'] },
-  { name: 'Alola', starters: ['rowlet', 'litten', 'popplio'] },
-  { name: 'Galar', starters: ['grookey', 'scorbunny', 'sobble'] },
-];
+import { REGIONS } from '../shared/constants.js';
 
 export class Store {
   constructor(filePath) {

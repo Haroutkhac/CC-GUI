@@ -15,7 +15,7 @@ import { AIOrchestrator } from './ai-orchestrator.js';
 import { WorktreeManager } from './worktree-manager.js';
 import { GitMonitor } from './git-monitor.js';
 import { StateDetector } from './state-detector.js';
-import { buildSafeModeConfig, classifyCommand } from './utils.js';
+import { buildSafeModeConfig, classifyCommand, capitalize } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv.includes('--production');
@@ -117,7 +117,7 @@ stateDetector.onStatusChange = (sessionId, newStatus, granularState, detail) => 
   if (newStatus === 'waiting' && !waitingNotified.has(sessionId)) {
     waitingNotified.add(sessionId);
     const starterName = session.starter
-      ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+      ? capitalize(session.starter)
       : session.name;
     io.emit('notification', {
       sessionId,
@@ -171,8 +171,8 @@ aiOrchestrator.onConflictsChange = () => {
       const sA = store.getSession(mc.sessionA);
       const sB = store.getSession(mc.sessionB);
       if (!sA || !sB) continue;
-      const nameA = sA.starter ? sA.starter.charAt(0).toUpperCase() + sA.starter.slice(1) : sA.name;
-      const nameB = sB.starter ? sB.starter.charAt(0).toUpperCase() + sB.starter.slice(1) : sB.name;
+      const nameA = sA.starter ? capitalize(sA.starter) : sA.name;
+      const nameB = sB.starter ? capitalize(sB.starter) : sB.name;
       const files = mc.conflicts.map(c => c.file).join(', ');
       io.emit('notification', {
         type: 'conflict',
@@ -198,7 +198,7 @@ aiOrchestrator.onCoordination = (entry) => {
 aiOrchestrator.onAutoRespond = (entry) => {
   const session = store.getSession(entry.sessionId);
   const starterName = session?.starter
-    ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+    ? capitalize(session.starter)
     : session?.name || 'Agent';
   io.emit('ai:auto-response', entry);
   io.emit('notification', {
@@ -570,7 +570,7 @@ io.on('connection', (socket) => {
             // Notify on completion
             if (exitStatus === 'completed') {
               const starterName = sess.starter
-                ? sess.starter.charAt(0).toUpperCase() + sess.starter.slice(1)
+                ? capitalize(sess.starter)
                 : sess.name;
               io.emit('notification', {
                 sessionId,
