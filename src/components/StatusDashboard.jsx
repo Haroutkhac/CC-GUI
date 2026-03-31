@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-const capitalize = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+import { capitalize } from '../../shared/constants.js';
 
 const STATUS_COLORS = {
   idle: '#808080',
