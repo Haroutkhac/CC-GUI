@@ -76,7 +76,7 @@ export class Orchestrator {
    * @param {string} sessionId
    * @param {string} tail
    * @param {SessionMeta} meta
-   * @returns {OrchestratorEntry}
+   * @returns {Partial<OrchestratorEntry>} Analysis result (sessionId, meta, detectedAt added by ingest)
    */
   _analyze(sessionId, tail, meta) {
     const lastLines = tail.split('\n').filter(l => l.trim()).slice(-8);
