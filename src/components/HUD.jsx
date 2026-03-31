@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-
-const capitalize = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+import { capitalize } from '../../shared/constants.js';
 
 export default function HUD({ projects, sessions, connected, orchestratorQueue, onCreateProject, onOpenOrchestrator }) {
   const activeCount = sessions.filter(s => s.status === 'active' || s.status === 'working').length;

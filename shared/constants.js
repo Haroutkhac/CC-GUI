@@ -10,3 +10,7 @@ export const REGIONS = [
   { name: 'Alola', starters: ['rowlet', 'litten', 'popplio'] },
   { name: 'Galar', starters: ['grookey', 'scorbunny', 'sobble'] },
 ];
+
+export function capitalize(str) {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+}
