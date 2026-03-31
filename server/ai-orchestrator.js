@@ -2,7 +2,7 @@
 // monitors git diffs, detects conflicts, coordinates agents, and creates PRs.
 
 import { execFile } from 'child_process';
-import { stripAnsi } from './utils.js';
+import { stripAnsi, capitalize } from './utils.js';
 
 const SUMMARY_DEBOUNCE_MS = 2000;
 const SUMMARY_COOLDOWN_MS = 20000;
@@ -474,7 +474,7 @@ export class AIOrchestrator {
 
   async _generatePRContent(session, project, diff, branchInfo) {
     const starterName = session.starter
-      ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+      ? capitalize(session.starter)
       : session.name;
 
     // Use AI summary if available, otherwise generate from diff

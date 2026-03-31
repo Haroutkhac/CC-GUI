@@ -99,8 +99,9 @@ export default function OrchestratorPanel({
     if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [selectedIndex]);
 
+  const capitalize = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
   const getName = (session) => session?.starter
-    ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+    ? capitalize(session.starter)
     : session?.name || '?';
 
   return (

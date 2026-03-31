@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 
+const capitalize = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+
 export default function HUD({ projects, sessions, connected, orchestratorQueue, onCreateProject, onOpenOrchestrator }) {
   const activeCount = sessions.filter(s => s.status === 'active' || s.status === 'working').length;
   const waitingSessions = sessions.filter(s => s.status === 'waiting');
   const waitingCount = waitingSessions.length;
-  const waitingNames = waitingSessions.map(s => { const name = s.starter || 'unknown'; return name.charAt(0).toUpperCase() + name.slice(1); });
+  const waitingNames = waitingSessions.map(s => capitalize(s.starter || 'unknown'));
   const urgentCount = (orchestratorQueue || []).filter(q => q.priority >= 3).length;
   const [showKeys, setShowKeys] = useState(false);
 
