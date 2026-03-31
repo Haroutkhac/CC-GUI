@@ -32,6 +32,7 @@ export class TranscriptWatcher {
       pollTimer: null,
       startupTimer: null,
       startupRetries: 0,
+      readInFlight: false,
     };
 
     this.watchers.set(sessionId, entry);
@@ -39,11 +40,13 @@ export class TranscriptWatcher {
   }
 
   _startWatching(sessionId, entry) {
-    const tryWatch = () => {
+    const tryWatch = async () => {
       // Check if we've been stopped
       if (!this.watchers.has(sessionId)) return;
 
-      if (!fs.existsSync(entry.path)) {
+      try {
+        await fs.promises.access(entry.path);
+      } catch {
         // File doesn't exist yet — poll until it appears (up to 60s)
         if (++entry.startupRetries > 60) return; // give up
         entry.startupTimer = setTimeout(tryWatch, 1000);
@@ -91,40 +94,39 @@ export class TranscriptWatcher {
     tryWatch();
   }
 
-  _readNewLines(sessionId, entry) {
-    let stat;
+  async _readNewLines(sessionId, entry) {
+    if (entry.readInFlight) return;
+    entry.readInFlight = true;
+
     try {
-      stat = fs.statSync(entry.path);
-    } catch {
-      return; // file gone or not accessible
-    }
+      let stat;
+      try {
+        stat = await fs.promises.stat(entry.path);
+      } catch { return; }
+      if (stat.size <= entry.offset) return;
 
-    if (stat.size <= entry.offset) return;
+      let fh;
+      try {
+        fh = await fs.promises.open(entry.path, 'r');
+        const buf = Buffer.alloc(stat.size - entry.offset);
+        await fh.read(buf, 0, buf.length, entry.offset);
+        entry.offset = stat.size;
 
-    let fd;
-    try {
-      fd = fs.openSync(entry.path, 'r');
-      const buf = Buffer.alloc(stat.size - entry.offset);
-      fs.readSync(fd, buf, 0, buf.length, entry.offset);
-      fs.closeSync(fd);
-      fd = null;
-      entry.offset = stat.size;
-
-      const text = buf.toString('utf8');
-      const lines = text.split('\n').filter(l => l.trim());
-
-      for (const line of lines) {
-        try {
-          const event = JSON.parse(line);
-          this._processEvent(sessionId, entry, event);
-        } catch {
-          // skip malformed lines
+        const text = buf.toString('utf8');
+        const lines = text.split('\n').filter(l => l.trim());
+        for (const line of lines) {
+          try {
+            const event = JSON.parse(line);
+            this._processEvent(sessionId, entry, event);
+          } catch { /* skip malformed */ }
         }
+      } catch {
+        // ignore read errors
+      } finally {
+        if (fh) await fh.close();
       }
-    } catch {
-      if (fd) {
-        try { fs.closeSync(fd); } catch { /* ignore */ }
-      }
+    } finally {
+      entry.readInFlight = false;
     }
   }
 
