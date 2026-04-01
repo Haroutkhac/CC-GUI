@@ -12,8 +12,8 @@ export class TerminalManager {
     this.terminals = new Map(); // sessionId -> { pty, scrollback, saveTimer }
     this.deadScrollback = new Map(); // sessionId -> scrollback (preserved after exit)
     this.scrollbackDir = dataDir ? path.join(dataDir, 'scrollback') : null;
-    if (this.scrollbackDir && !fs.existsSync(this.scrollbackDir)) {
-      fs.mkdirSync(this.scrollbackDir, { recursive: true });
+    if (this.scrollbackDir) {
+      fs.promises.mkdir(this.scrollbackDir, { recursive: true }).catch(() => {});
     }
   }
 
@@ -21,36 +21,34 @@ export class TerminalManager {
     return this.scrollbackDir ? path.join(this.scrollbackDir, `${sessionId}.buf`) : null;
   }
 
-  _saveScrollbackToDisk(sessionId, scrollback) {
+  async _saveScrollbackToDisk(sessionId, scrollback) {
     const filePath = this._scrollbackPath(sessionId);
     if (!filePath) return;
     try {
-      fs.writeFileSync(filePath, scrollback);
+      await fs.promises.writeFile(filePath, scrollback);
     } catch (e) {
       // Non-fatal — disk persistence is best-effort
     }
   }
 
-  _loadScrollbackFromDisk(sessionId) {
+  async _loadScrollbackFromDisk(sessionId) {
     const filePath = this._scrollbackPath(sessionId);
     if (!filePath) return null;
     try {
-      if (fs.existsSync(filePath)) {
-        return fs.readFileSync(filePath, 'utf-8');
-      }
+      return await fs.promises.readFile(filePath, 'utf-8');
     } catch (e) {
-      // Non-fatal
+      // Non-fatal — file may not exist
+      return null;
     }
-    return null;
   }
 
-  _deleteScrollbackFromDisk(sessionId) {
+  async _deleteScrollbackFromDisk(sessionId) {
     const filePath = this._scrollbackPath(sessionId);
     if (!filePath) return;
     try {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await fs.promises.unlink(filePath);
     } catch (e) {
-      // Non-fatal
+      // Non-fatal — file may not exist
     }
   }
 
@@ -93,7 +91,7 @@ export class TerminalManager {
       // Debounced save to disk
       if (!entry.saveTimer) {
         entry.saveTimer = setTimeout(() => {
-          this._saveScrollbackToDisk(sessionId, entry.scrollback);
+          this._saveScrollbackToDisk(sessionId, entry.scrollback).catch(() => {});
           entry.saveTimer = null;
         }, SCROLLBACK_SAVE_INTERVAL);
       }
@@ -102,7 +100,7 @@ export class TerminalManager {
     ptyProcess.onExit(({ exitCode }) => {
       // Flush any pending save and do a final write
       if (entry.saveTimer) clearTimeout(entry.saveTimer);
-      this._saveScrollbackToDisk(sessionId, entry.scrollback);
+      this._saveScrollbackToDisk(sessionId, entry.scrollback).catch(() => {});
 
       // Preserve scrollback so re-attaching shows previous output
       this.deadScrollback.set(sessionId, entry.scrollback);
@@ -141,12 +139,12 @@ export class TerminalManager {
     }
   }
 
-  getScrollback(sessionId) {
+  async getScrollback(sessionId) {
     const entry = this.terminals.get(sessionId);
     if (entry) return entry.scrollback;
-    return this.deadScrollback.get(sessionId)
-      || this._loadScrollbackFromDisk(sessionId)
-      || null;
+    const dead = this.deadScrollback.get(sessionId);
+    if (dead) return dead;
+    return (await this._loadScrollbackFromDisk(sessionId)) || null;
   }
 
   kill(sessionId) {
@@ -161,7 +159,7 @@ export class TerminalManager {
       this.terminals.delete(sessionId);
     }
     this.deadScrollback.delete(sessionId);
-    this._deleteScrollbackFromDisk(sessionId);
+    this._deleteScrollbackFromDisk(sessionId).catch(() => {});
   }
 
   killAll() {
