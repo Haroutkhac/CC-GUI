@@ -17,7 +17,7 @@ describe('TranscriptWatcher._processEvent', () => {
         content: [{ type: 'thinking', thinking: 'Let me analyze...' }],
       },
     });
-    expect(onStateChange).toHaveBeenCalledWith('s1', 'thinking');
+    expect(onStateChange).toHaveBeenCalledWith('s1', 'thinking', null);
     expect(entry.state).toBe('thinking');
   });
 
@@ -29,7 +29,10 @@ describe('TranscriptWatcher._processEvent', () => {
         content: [{ type: 'tool_use', name: 'read_file' }],
       },
     });
-    expect(onStateChange).toHaveBeenCalledWith('s1', 'tool_running');
+    expect(onStateChange).toHaveBeenCalledWith('s1', 'tool_running', {
+      toolName: 'read_file',
+      toolInput: null,
+    });
   });
 
   it('detects waiting from end_turn stop_reason', () => {
@@ -41,7 +44,7 @@ describe('TranscriptWatcher._processEvent', () => {
         stop_reason: 'end_turn',
       },
     });
-    expect(onStateChange).toHaveBeenCalledWith('s1', 'waiting');
+    expect(onStateChange).toHaveBeenCalledWith('s1', 'waiting', null);
   });
 
   it('tool_use + end_turn → waiting (end_turn overwrites)', () => {

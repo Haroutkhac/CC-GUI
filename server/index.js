@@ -18,29 +18,42 @@ import { registerRoutes } from './routes.js';
 import { registerSocketHandlers } from './socket-handlers.js';
 import { wireNotifications } from './notification-wiring.js';
 import { loadOrCreateToken, authMiddleware, socketAuthMiddleware } from './auth.js';
+import { buildSafeModeConfig, classifyCommand } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv.includes('--production');
+const safeModeConfig = buildSafeModeConfig(process.env);
 
 const authToken = loadOrCreateToken();
 
-const allowedOrigins = [
-  'http://localhost:5173',   // Vite dev server
-  'http://localhost:3456',   // Production
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3456',
-];
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (safeModeConfig.allowedOrigins.length === 0) return true;
+  return safeModeConfig.allowedOrigins.includes(origin);
+}
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
-  cors: { origin: allowedOrigins, credentials: true },
+  cors: {
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) callback(null, true);
+      else callback(new Error(`Origin not allowed: ${origin}`));
+    },
+    credentials: true,
+  },
   maxHttpBufferSize: 1e8,
 });
 
 io.use(socketAuthMiddleware(authToken));
 
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) callback(null, true);
+    else callback(new Error(`Origin not allowed: ${origin}`));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '20mb' }));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
@@ -82,7 +95,7 @@ const terminalManager = new TerminalManager({ dataDir });
 const stateDetector = new StateDetector();
 const orchestrator = new Orchestrator({ stateDetector });
 const gitMonitor = new GitMonitor();
-const aiOrchestrator = new AIOrchestrator({ terminalManager, gitMonitor, store });
+const aiOrchestrator = new AIOrchestrator({ terminalManager, gitMonitor, store, safeModeConfig });
 const worktreeManager = new WorktreeManager();
 const sessionSummaries = {};
 const waitingNotified = new Set();
@@ -111,13 +124,21 @@ function extractSummary(sessionId) {
 
 // --- Wire notifications, routes, and socket handlers ---
 wireNotifications(io, { store, stateDetector, orchestrator, aiOrchestrator, waitingNotified });
-registerRoutes(app, { store, aiOrchestrator, worktreeManager, terminalManager, io, cleanupSessionState });
+registerRoutes(app, { store, aiOrchestrator, worktreeManager, terminalManager, io, cleanupSessionState, safeModeConfig });
 registerSocketHandlers(io, { store, terminalManager, stateDetector, orchestrator, aiOrchestrator, worktreeManager, sessionSummaries, waitingNotified, cleanupSessionState, extractSummary });
 
 // On server startup, reset sessions that claim to be running but have no pty
 for (const session of store.getSessions()) {
+  const commandMeta = classifyCommand(session.command || 'claude');
+  const normalization = {};
+  if (session.sessionType !== commandMeta.sessionType) normalization.sessionType = commandMeta.sessionType;
+  if (session.baseCommand !== commandMeta.baseCommand) normalization.baseCommand = commandMeta.baseCommand;
+  if (session.unsafeCommand !== commandMeta.unsafeCommand) normalization.unsafeCommand = commandMeta.unsafeCommand;
   if (session.status === 'active' || session.status === 'working' || session.status === 'waiting') {
-    store.updateSession(session.id, { status: 'idle' });
+    normalization.status = 'idle';
+  }
+  if (Object.keys(normalization).length > 0) {
+    store.updateSession(session.id, normalization);
   }
 }
 
@@ -163,11 +184,19 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3456;
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, safeModeConfig.host, () => {
   console.log(`\n  CC Gym server running on http://localhost:${PORT}`);
-  console.log(`  Network access: http://${getNetworkIP()}:${PORT}`);
+  console.log(`  Bound host: ${safeModeConfig.host}`);
+  if (safeModeConfig.host !== '127.0.0.1') {
+    console.log(`  Network access: http://${getNetworkIP()}:${PORT}`);
+  }
+  if (safeModeConfig.safeMode) {
+    console.log('  OpenAI Safe Mode: ON');
+    console.log(`  Allowed origins: ${safeModeConfig.allowedOrigins.join(', ')}`);
+  }
   console.log(`  Auth token: ${authToken}`);
   console.log(`  Token file: ~/.cc-gui/auth-token`);
+  console.log(`  Default session command: ${safeModeConfig.defaultSessionCommand}`);
   console.log(`  AI Orchestrator: auto-respond ${aiOrchestrator.autoRespondEnabled ? 'ON' : 'OFF'}`);
   console.log(`  Git Monitor: active (polling every 15s)\n`);
   aiOrchestrator.startGitMonitor();

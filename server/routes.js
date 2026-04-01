@@ -23,7 +23,7 @@ function runCommand(cmd, args, timeout = 10000) {
  * @param {import('express').Express} app
  * @param {Object} deps
  */
-export function registerRoutes(app, { store, aiOrchestrator, worktreeManager, terminalManager, io, cleanupSessionState }) {
+export function registerRoutes(app, { store, aiOrchestrator, worktreeManager, terminalManager, io, cleanupSessionState, safeModeConfig }) {
 
   // --- Projects ---
 
@@ -76,6 +76,9 @@ export function registerRoutes(app, { store, aiOrchestrator, worktreeManager, te
     const { projectId, name, command } = req.body;
     const project = store.getProject(projectId);
     if (!project) return res.status(404).json({ error: 'project not found' });
+    if (!fs.existsSync(project.path)) {
+      return res.status(400).json({ error: `Project path does not exist: ${project.path}` });
+    }
 
     const session = store.createSession(projectId, name || 'New Session', command);
 
@@ -172,6 +175,13 @@ export function registerRoutes(app, { store, aiOrchestrator, worktreeManager, te
       ...aiOrchestrator.getStatus(),
       conflicts: aiOrchestrator.getConflicts(),
       prStatus: aiOrchestrator.getPRStatus(),
+      safeModeConfig: {
+        safeMode: safeModeConfig.safeMode,
+        host: safeModeConfig.host,
+        allowedOrigins: safeModeConfig.allowedOrigins,
+        protectedAgentCommands: safeModeConfig.protectedAgentCommands,
+        defaultSessionCommand: safeModeConfig.defaultSessionCommand,
+      },
     });
   });
 

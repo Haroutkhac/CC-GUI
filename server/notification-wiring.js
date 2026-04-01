@@ -10,7 +10,7 @@ import { capitalize } from './utils.js';
 export function wireNotifications(io, { store, stateDetector, orchestrator, aiOrchestrator, waitingNotified }) {
 
   // Wire up StateDetector status change callback
-  stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
+  stateDetector.onStatusChange = (sessionId, newStatus, granularState, detail) => {
     const session = store.getSession(sessionId);
     if (!session) return;
 
@@ -28,7 +28,11 @@ export function wireNotifications(io, { store, stateDetector, orchestrator, aiOr
       waitingNotified.delete(sessionId);
     }
 
-    store.updateSession(sessionId, { status: newStatus });
+    const sessionUpdate = { status: newStatus, granularState };
+    if (detail) {
+      sessionUpdate.stateDetail = detail;
+    }
+    store.updateSession(sessionId, sessionUpdate);
     io.emit('sessions:updated', store.getSessions());
 
     // Notify AI orchestrator of status changes

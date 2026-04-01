@@ -1,6 +1,8 @@
 // Socket.IO event handlers for terminal management and AI orchestrator controls.
 
+import fs from 'fs';
 import { capitalize } from './utils.js';
+import { classifyCommand } from './utils.js';
 
 /**
  * Register all Socket.IO event handlers.
@@ -57,7 +59,14 @@ export function registerSocketHandlers(io, { store, terminalManager, stateDetect
         const parts = cmd.split(/\s+/);
         let command = parts[0];
         let commandArgs = parts.slice(1);
+        const commandMeta = classifyCommand(cmd);
         const isClaudeCmd = command === 'claude';
+
+        store.updateSession(sessionId, {
+          sessionType: commandMeta.sessionType,
+          baseCommand: commandMeta.baseCommand,
+          unsafeCommand: commandMeta.unsafeCommand,
+        });
 
         if (isClaudeCmd && session.claudeSessionId) {
           commandArgs = ['--resume', session.claudeSessionId];
@@ -68,6 +77,13 @@ export function registerSocketHandlers(io, { store, terminalManager, stateDetect
 
         try {
           const cwd = session.worktreePath || project.path;
+          if (!fs.existsSync(cwd)) {
+            socket.emit('terminal:error', {
+              sessionId,
+              error: `Project path does not exist: ${cwd}`,
+            });
+            return;
+          }
           term = terminalManager.create(sessionId, command, commandArgs, {
             cwd,
             onData: (data) => {

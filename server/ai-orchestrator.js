@@ -9,8 +9,9 @@ import { Coordinator } from './coordinator.js';
 import { PRCreator } from './pr-creator.js';
 
 export class AIOrchestrator {
-  constructor({ terminalManager, gitMonitor, store }) {
+  constructor({ terminalManager, gitMonitor, store, safeModeConfig = {} }) {
     this.store = store;
+    this.safeModeConfig = safeModeConfig;
 
     // Compose sub-modules
     this.autoResponder = new AutoResponder({ terminalManager });
@@ -120,12 +121,22 @@ export class AIOrchestrator {
    * @returns {boolean}
    */
   checkAutoRespond(sessionId, cleanTail) {
+    const blockedReason = this.getAutoRespondBlockReason(sessionId);
+    if (blockedReason) {
+      console.log(`[AI Orchestrator] Auto-respond blocked for ${sessionId}: ${blockedReason}`);
+      return false;
+    }
     return this.autoResponder.checkAutoRespond(sessionId, cleanTail);
   }
 
   // ========== COORDINATION ==========
 
   sendCoordinationMessage(sessionId, message) {
+    const blockedReason = this.getCoordinationBlockReason(sessionId);
+    if (blockedReason) {
+      console.log(`[AI Orchestrator] Coordination blocked for ${sessionId}: ${blockedReason}`);
+      return false;
+    }
     return this.coordinator.sendCoordinationMessage(sessionId, message);
   }
 
@@ -184,12 +195,33 @@ export class AIOrchestrator {
     return {
       autoRespondEnabled: this.autoResponder.autoRespondEnabled,
       coordinationEnabled: this.coordinator.coordinationEnabled,
+      safeMode: !!this.safeModeConfig.safeMode,
+      protectedAgentCommands: this.safeModeConfig.protectedAgentCommands || [],
+      defaultSessionCommand: this.safeModeConfig.defaultSessionCommand || 'claude',
       summaryCount: Object.keys(this.summarizer.summaries).length,
       pendingCount: this.summarizer.pendingSessions.size,
       processing: this.summarizer._processing,
       trackedSessions: Object.keys(this.conflictDetector.diffs).length,
       conflictProjects: Object.keys(this.conflictDetector.conflicts).length,
     };
+  }
+
+  getAutoRespondBlockReason(sessionId) {
+    const session = this.store?.getSession(sessionId);
+    if (!session) return null;
+    if (session.sessionType === 'protected_agent') {
+      return `manual approval required for protected agent command "${session.baseCommand || session.command || 'unknown'}"`;
+    }
+    return null;
+  }
+
+  getCoordinationBlockReason(sessionId) {
+    const session = this.store?.getSession(sessionId);
+    if (!session) return null;
+    if (session.sessionType === 'protected_agent') {
+      return `automatic coordination disabled for protected agent command "${session.baseCommand || session.command || 'unknown'}"`;
+    }
+    return null;
   }
 
   // ========== CLEANUP ==========
