@@ -24,6 +24,11 @@ export function extractOSC(str) {
   return matches;
 }
 
+// Capitalize the first letter of a string
+export function capitalize(str) {
+  return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+}
+
 // Buffer size constants
 export const SCROLLBACK_LIMIT = 100000;    // 100KB per terminal session
 export const STATUS_BUFFER_LIMIT = 4000;   // For status detection in server

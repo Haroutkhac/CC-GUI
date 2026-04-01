@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { capitalize } from '../../shared/constants.js';
 
 const STATUS_COLORS = {
   idle: '#808080',
@@ -20,7 +21,7 @@ export default function StatusDashboard({
   const waitingSessions = sessions.filter(s => s.status === 'waiting');
   const waitingCount = waitingSessions.length;
   const waitingNames = waitingSessions.map(s =>
-    s.starter ? s.starter.charAt(0).toUpperCase() + s.starter.slice(1) : 'Unknown'
+    s.starter ? capitalize(s.starter) : 'Unknown'
   );
   const completedSessions = sessions.filter(s => s.status === 'completed');
   const completedCount = completedSessions.length;
@@ -224,7 +225,7 @@ function SessionRow({ session, summary, aiSummary, diff, branch, prStatus, confl
   const isWaiting = session.status === 'waiting';
   const isCompleted = session.status === 'completed';
   const starterName = session.starter
-    ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+    ? capitalize(session.starter)
     : '???';
 
   const displaySummary = aiSummary?.summary || summary;
@@ -265,7 +266,7 @@ function SessionRow({ session, summary, aiSummary, diff, branch, prStatus, confl
             <span className="dash-git-conflict">
               CONFLICT with {conflicts.map(c => {
                 const other = sessions.find(s => s.id === c.with);
-                return other?.starter ? other.starter.charAt(0).toUpperCase() + other.starter.slice(1) : '?';
+                return other?.starter ? capitalize(other.starter) : '?';
               }).join(', ')}
             </span>
           )}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { capitalize } from '../../shared/constants.js';
 
 const PRIORITY_COLORS = {
   4: '#C04040', // CRITICAL - red
@@ -100,7 +101,7 @@ export default function OrchestratorPanel({
   }, [selectedIndex]);
 
   const getName = (session) => session?.starter
-    ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
+    ? capitalize(session.starter)
     : session?.name || '?';
 
   return (
