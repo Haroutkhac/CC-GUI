@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { authFetch } from '../authFetch.js';
 
 function ValidationError({ message }) {
   if (!message) return null;
@@ -40,7 +41,7 @@ export function CreateProjectDialog({ onSubmit, onCancel, serverError }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/discover')
+    authFetch('/api/discover')
       .then(r => r.json())
       .then(data => { setDiscovered(data); setLoading(false); })
       .catch(() => { setDiscovered({ local: [], github: [] }); setLoading(false); });
