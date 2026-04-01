@@ -1,5 +1,6 @@
 // Orchestrator: monitors all terminal sessions and determines what action is needed
 
+import './types.js';
 import { stripAnsi, ORCHESTRATOR_BUFFER_LIMIT } from './utils.js';
 
 export const PRIORITY = {
@@ -35,7 +36,12 @@ export class Orchestrator {
     this._debounceTimer = null;
   }
 
-  // Feed terminal output into the orchestrator
+  /**
+   * Feed terminal output into the orchestrator.
+   * @param {string} sessionId
+   * @param {string} rawData
+   * @param {SessionMeta} meta
+   */
   ingest(sessionId, rawData, meta) {
     let buf = (this.buffers.get(sessionId) || '') + rawData;
     if (buf.length > ORCHESTRATOR_BUFFER_LIMIT) buf = buf.slice(-ORCHESTRATOR_BUFFER_LIMIT);
@@ -65,7 +71,13 @@ export class Orchestrator {
     }
   }
 
-  // Analyze the cleaned terminal output and determine priority/action
+  /**
+   * Analyze the cleaned terminal output and determine priority/action.
+   * @param {string} sessionId
+   * @param {string} tail
+   * @param {SessionMeta} meta
+   * @returns {Partial<OrchestratorEntry>} Analysis result (sessionId, meta, detectedAt added by ingest)
+   */
   _analyze(sessionId, tail, meta) {
     const lastLines = tail.split('\n').filter(l => l.trim()).slice(-8);
     const lastLine = (lastLines[lastLines.length - 1] || '').trim();
@@ -216,7 +228,10 @@ export class Orchestrator {
     }
   }
 
-  // Get all sessions ranked by priority (highest first, then longest waiting)
+  /**
+   * Get all sessions ranked by priority (highest first, then longest waiting).
+   * @returns {OrchestratorEntry[]}
+   */
   getRanked() {
     const entries = [];
     for (const [sessionId, state] of this.states) {

@@ -1,3 +1,4 @@
+import './types.js';
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuid } from 'uuid';
@@ -64,9 +65,20 @@ export class Store {
     }, 100);
   }
 
+  /** @returns {Project[]} */
   getProjects() { return Object.values(this.data.projects); }
+
+  /**
+   * @param {string} id
+   * @returns {Project|null}
+   */
   getProject(id) { return this.data.projects[id] || null; }
 
+  /**
+   * @param {string} name
+   * @param {string} projectPath
+   * @returns {Project}
+   */
   createProject(name, projectPath) {
     const id = uuid();
     const projectCount = Object.keys(this.data.projects).length;
@@ -93,12 +105,29 @@ export class Store {
     this.save();
   }
 
+  /** @returns {Session[]} */
   getSessions() { return Object.values(this.data.sessions); }
+
+  /**
+   * @param {string} id
+   * @returns {Session|null}
+   */
   getSession(id) { return this.data.sessions[id] || null; }
+
+  /**
+   * @param {string} projectId
+   * @returns {Session[]}
+   */
   getSessionsByProject(projectId) {
     return Object.values(this.data.sessions).filter(s => s.projectId === projectId);
   }
 
+  /**
+   * @param {string} projectId
+   * @param {string} name
+   * @param {string} [command]
+   * @returns {Session|null}
+   */
   createSession(projectId, name, command) {
     const id = uuid();
     const project = this.data.projects[projectId];
@@ -124,6 +153,11 @@ export class Store {
     return session;
   }
 
+  /**
+   * @param {string} id
+   * @param {Partial<Session>} updates
+   * @returns {Session|null}
+   */
   updateSession(id, updates) {
     if (!this.data.sessions[id]) return null;
     Object.assign(this.data.sessions[id], updates);
