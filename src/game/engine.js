@@ -469,9 +469,9 @@ export class GameEngine {
         this.nearbyTable = table;
         break;
       }
-      // Detect tables within 2 tiles so the player can interact even when
-      // all adjacent seats are occupied by Pokemon
-      if (!this.nearbyTable && Math.abs(table.x - p.tileX) + Math.abs(table.y - p.tileY) <= 2) {
+      // Detect tables within the rug area (4x4: dx -1..+2, dy -1..+2)
+      // so the tooltip shows everywhere on the rug, not just close tiles
+      if (!this.nearbyTable && Math.abs(table.x - p.tileX) <= 2 && Math.abs(table.y - p.tileY) <= 2) {
         this.nearbyTable = table;
       }
     }
@@ -561,7 +561,7 @@ export class GameEngine {
         const npc = entity.data;
         const px = npc.x * tileSize;
         const py = npc.y * tileSize;
-        drawPokemonWithStatus(ctx, px, py, npc.starter, npc.status, s);
+        drawPokemonWithStatus(ctx, px, py, npc.starter, npc.status, s, npc.sessionId);
       } else if (entity.type === 'player') {
         const p = entity.data;
         drawPlayer(ctx, p.pixelX * tileSize, p.pixelY * tileSize, p.direction, p.frame, s);

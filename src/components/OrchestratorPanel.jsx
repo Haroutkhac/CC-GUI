@@ -161,7 +161,11 @@ export default function OrchestratorPanel({
               <div key={`ov-${i}`} className="orch-conflict-row orch-conflict-warn">
                 <span className="orch-conflict-icon">!</span>
                 <span>
-                  {overlap.sessions.map(s => getName(s)).join(' & ')} both editing <strong>{overlap.file.split('/').pop()}</strong>
+                  {overlap.sessions.map(s => {
+                    const name = getName(s);
+                    const dupes = overlap.sessions.filter(o => getName(o) === name);
+                    return dupes.length > 1 ? `${name} (${s.name})` : name;
+                  }).join(' & ')} both editing <strong>{overlap.file.split('/').pop()}</strong>
                 </span>
               </div>
             ))}

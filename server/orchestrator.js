@@ -143,19 +143,62 @@ export class Orchestrator {
     // --- LOW: Actively working — use StateDetector for reliable detection ---
     if (this.stateDetector) {
       const granularState = this.stateDetector.getGranularState(sessionId);
-      if (granularState === 'thinking' || granularState === 'tool_running' || granularState === 'working') {
-        const reasonMap = {
-          thinking: 'Thinking',
-          tool_running: 'Running tool',
-          working: 'Working',
+      const detail = this.stateDetector.getDetail(sessionId);
+
+      // Error states detected from transcript (rate limit, billing, auth, max turns, etc.)
+      if (granularState === 'error') {
+        const errorReasons = {
+          rate_limit: 'Rate limited',
+          billing_error: 'Billing error',
+          authentication_failed: 'Auth failed',
+          server_error: 'Server error',
+          max_output_tokens: 'Max output tokens',
+          error_max_turns: 'Max turns reached',
+          error_max_budget_usd: 'Budget exceeded',
+          error_during_execution: 'Execution error',
+          error_max_structured_output_retries: 'Max retries exceeded',
         };
+        return {
+          priority: PRIORITY.HIGH,
+          label: PRIORITY_LABELS[PRIORITY.HIGH],
+          reason: errorReasons[detail?.errorType] || 'Error',
+          action: 'Investigate error',
+          actionHint: 'error',
+          context: detail?.errors?.join('; ') || context,
+        };
+      }
+
+      // Active work states
+      if (['thinking', 'tool_running', 'responding', 'compacting', 'api_retry', 'working'].includes(granularState)) {
+        let reason;
+        switch (granularState) {
+          case 'thinking':
+            reason = 'Thinking';
+            break;
+          case 'tool_running':
+            reason = detail?.toolName ? `Running ${detail.toolName}` : 'Running tool';
+            break;
+          case 'responding':
+            reason = 'Responding';
+            break;
+          case 'compacting':
+            reason = 'Compacting context';
+            break;
+          case 'api_retry':
+            reason = detail?.retryAttempt
+              ? `Retrying (${detail.retryAttempt}/${detail.retryMax || '?'})`
+              : 'Retrying API call';
+            break;
+          default:
+            reason = 'Working';
+        }
         return {
           priority: PRIORITY.LOW,
           label: PRIORITY_LABELS[PRIORITY.LOW],
-          reason: reasonMap[granularState] || 'Working',
+          reason,
           action: 'No action needed',
           actionHint: 'working',
-          context,
+          context: detail?.toolInput || context,
         };
       }
     } else {
