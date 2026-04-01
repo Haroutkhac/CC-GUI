@@ -1,5 +1,103 @@
 // Shared utilities
 
+const DEFAULT_PROTECTED_AGENT_COMMANDS = ['codex', 'openai'];
+
+export function parseBoolean(value, defaultValue = false) {
+  if (value == null || value === '') return defaultValue;
+  return /^(1|true|yes|on)$/i.test(String(value).trim());
+}
+
+export function parseCsv(value) {
+  if (!value) return [];
+  return String(value)
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+export function normalizeCommandName(command = '') {
+  const trimmed = String(command || '').trim();
+  if (!trimmed) return '';
+  const base = trimmed.split(/\s+/)[0] || '';
+  const withoutPath = base.split(/[\\/]/).pop() || '';
+  return withoutPath.toLowerCase();
+}
+
+export function getProtectedAgentCommands(env = process.env) {
+  const configured = parseCsv(env.PROTECTED_AGENT_COMMANDS).map(cmd => cmd.toLowerCase());
+  return configured.length > 0 ? configured : DEFAULT_PROTECTED_AGENT_COMMANDS;
+}
+
+export function getDefaultSessionCommand(env = process.env) {
+  return String(env.DEFAULT_SESSION_COMMAND || 'claude').trim() || 'claude';
+}
+
+export function classifyCommand(command, env = process.env) {
+  const baseCommand = normalizeCommandName(command);
+  const protectedCommands = getProtectedAgentCommands(env);
+  const sessionType = protectedCommands.includes(baseCommand) ? 'protected_agent' : 'generic_terminal';
+  const knownSafeCommands = new Set([
+    'claude',
+    'codex',
+    'openai',
+    'bash',
+    'sh',
+    'zsh',
+    'fish',
+    'npm',
+    'pnpm',
+    'yarn',
+    'node',
+    'python',
+    'python3',
+    'git',
+    'gh',
+  ]);
+
+  return {
+    baseCommand,
+    sessionType,
+    unsafeCommand: baseCommand ? !knownSafeCommands.has(baseCommand) : false,
+  };
+}
+
+export function buildSafeModeConfig(env = process.env) {
+  const safeMode = parseBoolean(env.OPENAI_SAFE_MODE, true);
+  const host = env.HOST || (safeMode ? '127.0.0.1' : '0.0.0.0');
+  const allowUnsafeRemote = parseBoolean(env.ALLOW_UNSAFE_REMOTE, false);
+  const allowedOrigins = parseCsv(env.ALLOWED_ORIGINS);
+  const protectedAgentCommands = getProtectedAgentCommands(env);
+  const defaultSessionCommand = getDefaultSessionCommand(env);
+  const inferredLocalOrigins = [
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
+    'http://127.0.0.1:3456',
+    'http://localhost:3456',
+  ];
+
+  const effectiveOrigins = allowedOrigins.length > 0
+    ? allowedOrigins
+    : (safeMode ? inferredLocalOrigins : []);
+
+  if (safeMode) {
+    if (host !== '127.0.0.1' && !allowUnsafeRemote) {
+      throw new Error(`OPENAI_SAFE_MODE forbids HOST=${host}. Use HOST=127.0.0.1 or set ALLOW_UNSAFE_REMOTE=true.`);
+    }
+    if (effectiveOrigins.includes('*')) {
+      throw new Error('OPENAI_SAFE_MODE forbids ALLOWED_ORIGINS=*; provide explicit origins instead.');
+    }
+  }
+
+  return {
+    safeMode,
+    host,
+    allowUnsafeRemote,
+    allowedOrigins: effectiveOrigins,
+    protectedAgentCommands,
+    defaultSessionCommand,
+  };
+}
+
 // Strip ANSI escape sequences from terminal output
 export function stripAnsi(str) {
   return str
@@ -23,6 +121,12 @@ export function extractOSC(str) {
   }
   return matches;
 }
+
+// Claude Code terminal title prefixes (from screens/REPL.tsx)
+// When Claude is busy, the title animates between these two braille chars (960ms interval)
+export const TITLE_BUSY_PREFIXES = ['⠂', '⠐'];
+// When Claude is idle/waiting, the title uses this static prefix
+export const TITLE_IDLE_PREFIX = '✳';
 
 // Buffer size constants
 export const SCROLLBACK_LIMIT = 100000;    // 100KB per terminal session

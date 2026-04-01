@@ -36,6 +36,15 @@ html, body, #root {
   box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
 }
 .pkmn-hud-title { font-size: 10px; color: #383838; margin-bottom: 4px; }
+.pkmn-safe-banner {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 4px 6px;
+  font-size: 7px;
+  color: #7A1F1F;
+  background: #F8D7A5;
+  border: 2px solid #7A1F1F;
+}
 .pkmn-hud-stats { display: flex; gap: 6px; font-size: 7px; color: #606060; flex-wrap: wrap; align-items: center; }
 .pkmn-hud-sep { color: #B0B0B0; }
 .stat-active { color: #3060A0; }
@@ -186,6 +195,16 @@ html, body, #root {
 }
 .dash-starter { color: #808080; min-width: 70px; font-size: 8px; text-transform: capitalize; }
 .dash-session-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-session-badge {
+  font-size: 6px;
+  color: #7A1F1F;
+  border: 1px solid #7A1F1F;
+  padding: 2px 4px;
+}
+.dash-session-badge-unsafe {
+  color: #8A4F00;
+  border-color: #8A4F00;
+}
 .dash-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .dash-status-text { font-size: 7px; text-transform: uppercase; min-width: 48px; text-align: right; }
 .dash-session-summary {
@@ -206,6 +225,7 @@ html, body, #root {
   font-size: 7px; color: #B0A890; margin-top: 6px;
   display: flex; gap: 6px; align-items: center;
 }
+.dash-safe-mode { color: #7A1F1F; }
 .dash-conflict { color: #C04040; animation: blink 1s infinite; }
 .dash-overlap { color: #C08800; }
 .dash-conflict-badge {
@@ -501,6 +521,17 @@ html, body, #root {
 }
 .terminal-git-item:hover { background: #E8E0D0; border-color: #383838; }
 
+.terminal-safety-banner {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 12px;
+  background: #7A1F1F;
+  color: #F8F8F0;
+  border-bottom: 2px solid #4B1212;
+  font-size: 7px;
+}
+
 .terminal-body {
   flex: 1; padding: 4px;
   overflow: hidden; background: #181820;
@@ -782,6 +813,20 @@ html, body, #root {
   animation: blink 1s infinite;
 }
 
+/* Notification bell in HUD */
+.notif-bell-btn { position: relative; }
+.notif-bell-badge {
+  position: absolute;
+  top: -6px; right: -6px;
+  background: #C08800;
+  color: #FFF;
+  font-size: 6px;
+  min-width: 14px; height: 14px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #383838;
+  animation: blink 1s infinite;
+}
+
 /* === NOTIFICATION PANEL === */
 .notif-panel {
   position: absolute;
@@ -922,20 +967,6 @@ html, body, #root {
   text-transform: capitalize;
 }
 
-/* Notification bell in HUD */
-.notif-bell-btn { position: relative; }
-.notif-bell-badge {
-  position: absolute;
-  top: -6px; right: -6px;
-  background: #C08800;
-  color: #FFF;
-  font-size: 6px;
-  min-width: 14px; height: 14px;
-  display: flex; align-items: center; justify-content: center;
-  border: 1px solid #383838;
-  animation: blink 1s infinite;
-}
-
 /* === ANIMATIONS === */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dialogIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -967,7 +998,6 @@ html, body, #root {
   .fab-team { bottom: 150px; right: 8px; font-size: 7px; padding: 10px 12px; }
   .dash-panel { max-width: 100%; }
   .carousel-card { min-width: 90%; max-width: 90%; margin: 0 5%; }
-  .notif-panel { width: calc(100vw - 24px); right: 12px; left: 12px; }
 }
 @media (max-width: 360px) {
   .pkmn-hud { padding: 4px 6px; }

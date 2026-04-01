@@ -14,7 +14,7 @@ import { useSocket } from './hooks/useSocket.js';
 export default function App() {
   const {
     socket, connected, projects, sessions, summaries, notifications, orchestratorQueue,
-    aiSummaries, aiDiffs, aiBranches, aiConflicts, prStatuses,
+    aiSummaries, aiDiffs, aiBranches, aiConflicts, prStatuses, aiStatus,
     createProject, deleteProject, createSession, quickCreateSession, deleteSession,
     attachTerminal, detachTerminal, sendTerminalInput, resizeTerminal,
     dismissNotification, createPR, createAllPRs,
@@ -260,6 +260,7 @@ export default function App() {
         projects={projects}
         sessions={sessions}
         connected={connected}
+        aiStatus={aiStatus}
         orchestratorQueue={orchestratorQueue}
         notificationCount={sessions.filter(s => s.status === 'waiting').length + notifications.length}
         onCreateProject={() => setDialog('createProject')}
@@ -268,7 +269,6 @@ export default function App() {
         notificationsOpen={notificationsOpen}
       />
 
-      {/* Notification Panel */}
       {notificationsOpen && (
         <NotificationPanel
           sessions={sessions}
@@ -322,6 +322,7 @@ export default function App() {
           sessions={sessions}
           summaries={summaries}
           aiSummaries={aiSummaries}
+          aiStatus={aiStatus}
           aiDiffs={aiDiffs}
           aiBranches={aiBranches}
           aiConflicts={aiConflicts}
@@ -359,6 +360,10 @@ export default function App() {
           sessionName={terminalSession?.name}
           projectName={terminalSession ? projects.find(p => p.id === terminalSession.projectId)?.name : null}
           branch={terminalSession?.branch}
+          sessionType={terminalSession?.sessionType}
+          baseCommand={terminalSession?.baseCommand}
+          unsafeCommand={terminalSession?.unsafeCommand}
+          safeMode={aiStatus?.safeMode}
           socket={socket}
           onClose={() => setActiveTerminal(null)}
           sendInput={sendTerminalInput}
@@ -382,6 +387,7 @@ export default function App() {
         <CreateSessionDialog
           projectId={dialogData.id}
           projectName={dialogData.name}
+          defaultCommand={aiStatus?.defaultSessionCommand || 'claude'}
           onSubmit={handleCreateSession}
           onCancel={() => { setDialog(null); setDialogData(null); }}
         />

@@ -56,6 +56,36 @@ This starts two processes concurrently:
 
 Open **http://localhost:5173** in your browser.
 
+### Safe mode defaults
+
+CC-GUI now starts in `OPENAI_SAFE_MODE=true` by default.
+
+- Server host defaults to `127.0.0.1`
+- CORS is restricted to explicit local origins
+- Auto-respond starts disabled
+- Sessions running protected agent commands such as `codex` or `openai` require manual approvals
+
+Optional environment variables:
+
+```bash
+OPENAI_SAFE_MODE=true
+HOST=127.0.0.1
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+ALLOW_UNSAFE_REMOTE=false
+PROTECTED_AGENT_COMMANDS=codex,openai
+DEFAULT_SESSION_COMMAND=claude
+```
+
+If you set `HOST` to a non-local address while safe mode is on, startup will fail unless `ALLOW_UNSAFE_REMOTE=true` is also set.
+
+To boot the GUI in Codex mode, set:
+
+```bash
+DEFAULT_SESSION_COMMAND=codex npm run dev
+```
+
+That changes the default command used by quick-create and the new-session dialog. You can still override the command per session.
+
 ### Running in production
 
 ```bash
@@ -78,7 +108,7 @@ Click any repo to add it, or choose **ENTER PATH MANUALLY** to type an absolute 
 
 ### 2. Create a session
 
-Click a table in the game world to see its sessions, then create one. Each session defaults to running the `claude` command in the project's directory. You can change the command to anything (`bash`, `npm run dev`, etc.).
+Click a table in the game world to see its sessions, then create one. Each session defaults to running `DEFAULT_SESSION_COMMAND` in the project's directory, which is `claude` unless you override it. You can change the command to anything (`codex`, `bash`, `npm run dev`, etc.).
 
 ### 3. Open a terminal
 
@@ -172,10 +202,13 @@ Install and authenticate the GitHub CLI: `gh auth login`.
 
 This tool spawns real terminal processes and provides full shell access through the browser. It is designed for **local use only**.
 
-- The server binds to `0.0.0.0` and accepts connections from any origin
+- Safe mode defaults to `127.0.0.1` and explicit local origins only
+- Disabling safe mode or allowing remote access makes the app materially riskier
 - Anyone who can reach the server can execute arbitrary commands
 - The `/api/discover` endpoint lists git repos on your machine
 - **Do not expose this to the public internet**
+- For OpenAI/Codex sessions, keep approvals manual and do not share access to a logged-in session
+- Terminal scrollback and transcript-derived state may contain prompts, repo paths, and secrets; clean `data/scrollback/` regularly if you use protected agent sessions
 
 For remote access, use a VPN or [Tailscale](https://tailscale.com).
 

@@ -10,7 +10,7 @@ const STATUS_COLORS = {
 };
 
 export default function StatusDashboard({
-  projects, sessions, summaries, aiSummaries,
+  projects, sessions, summaries, aiSummaries, aiStatus,
   aiDiffs, aiBranches, aiConflicts, prStatuses,
   onCreatePR, onSelectSession, onClose, open,
 }) {
@@ -132,6 +132,8 @@ export default function StatusDashboard({
             )}
           </div>
           <div className="dash-nav-hint">
+            {aiStatus?.safeMode && <span className="dash-safe-mode">SAFE MODE</span>}
+            {aiStatus?.safeMode && <span className="dash-sep">&bull;</span>}
             <span>↑↓ navigate</span>
             <span className="dash-sep">&bull;</span>
             <span>ENTER select</span>
@@ -219,6 +221,48 @@ export default function StatusDashboard({
   );
 }
 
+// Human-readable labels for granular states
+const GRANULAR_LABELS = {
+  thinking: 'thinking',
+  tool_running: 'running tool',
+  responding: 'responding',
+  compacting: 'compacting',
+  api_retry: 'retrying',
+  working: 'working',
+  error: 'error',
+  waiting: 'waiting',
+  idle: 'idle',
+  active: 'active',
+  completed: 'completed',
+  exited: 'exited',
+};
+
+function getGranularLabel(session) {
+  const gs = session.granularState;
+  const detail = session.stateDetail;
+  if (!gs) return session.status;
+
+  if (gs === 'tool_running' && detail?.toolName) {
+    return detail.toolName;
+  }
+  if (gs === 'api_retry' && detail?.retryAttempt) {
+    return `retry ${detail.retryAttempt}/${detail.retryMax || '?'}`;
+  }
+  if (gs === 'error' && detail?.errorType) {
+    const errorLabels = {
+      rate_limit: 'rate limited',
+      billing_error: 'billing error',
+      authentication_failed: 'auth failed',
+      server_error: 'server error',
+      error_max_turns: 'max turns',
+      error_max_budget_usd: 'over budget',
+      error_during_execution: 'exec error',
+    };
+    return errorLabels[detail.errorType] || 'error';
+  }
+  return GRANULAR_LABELS[gs] || session.status;
+}
+
 function SessionRow({ session, summary, aiSummary, diff, branch, prStatus, conflicts, overlaps, sessions, selected, onSelect, onCreatePR }) {
   const statusColor = STATUS_COLORS[session.status] || '#808080';
   const isWaiting = session.status === 'waiting';
@@ -239,6 +283,9 @@ function SessionRow({ session, summary, aiSummary, diff, branch, prStatus, confl
   const prBusy = prStatus?.status && !['created', 'error'].includes(prStatus.status);
   const prError = prStatus?.status === 'error';
 
+  // Use granular label when available, fall back to status
+  const statusLabel = getGranularLabel(session);
+
   return (
     <button
       className={`dash-session-row ${isWaiting ? 'dash-session-waiting' : ''} ${isCompleted ? 'dash-session-completed' : ''} ${hasConflicts ? 'dash-session-conflict' : ''} ${selected ? 'dash-session-selected' : ''}`}
@@ -247,9 +294,15 @@ function SessionRow({ session, summary, aiSummary, diff, branch, prStatus, confl
       <div className="dash-session-main">
         <span className="dash-starter">{starterName}</span>
         <span className="dash-session-name">{session.name}</span>
+        {session.sessionType === 'protected_agent' && (
+          <span className="dash-session-badge">PROTECTED</span>
+        )}
+        {session.unsafeCommand && session.sessionType !== 'protected_agent' && (
+          <span className="dash-session-badge dash-session-badge-unsafe">CUSTOM</span>
+        )}
         <span className="dash-status-dot" style={{ backgroundColor: statusColor }} />
         <span className="dash-status-text" style={{ color: statusColor }}>
-          {session.status}
+          {statusLabel}
         </span>
       </div>
 

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuid } from 'uuid';
+import { classifyCommand, getDefaultSessionCommand } from './utils.js';
 
 const REGIONS = [
   { name: 'Kanto', starters: ['bulbasaur', 'charmander', 'squirtle'] },
@@ -119,11 +120,16 @@ export class Store {
     const starterIdx = existingSessions.length % project.starters.length;
     const starter = project.starters[starterIdx];
 
+    const resolvedCommand = command || getDefaultSessionCommand();
+    const commandMeta = classifyCommand(resolvedCommand);
     const session = {
       id,
       projectId,
       name,
-      command: command || 'claude',
+      command: resolvedCommand,
+      sessionType: commandMeta.sessionType,
+      baseCommand: commandMeta.baseCommand,
+      unsafeCommand: commandMeta.unsafeCommand,
       status: 'idle',
       starter,
       claudeSessionId: null, // set when Claude CLI is spawned with --session-id
@@ -136,6 +142,15 @@ export class Store {
 
   updateSession(id, updates) {
     if (!this.data.sessions[id]) return null;
+    if (Object.prototype.hasOwnProperty.call(updates, 'command')) {
+      const commandMeta = classifyCommand(updates.command || this.data.sessions[id].command || getDefaultSessionCommand());
+      updates = {
+        ...updates,
+        sessionType: commandMeta.sessionType,
+        baseCommand: commandMeta.baseCommand,
+        unsafeCommand: commandMeta.unsafeCommand,
+      };
+    }
     Object.assign(this.data.sessions[id], updates);
     this.save();
     return this.data.sessions[id];

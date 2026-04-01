@@ -10,6 +10,10 @@ export default function TerminalOverlay({
   sessionName,
   projectName,
   branch,
+  sessionType,
+  baseCommand,
+  unsafeCommand,
+  safeMode,
   socket,
   onClose,
   sendInput,
@@ -395,6 +399,18 @@ export default function TerminalOverlay({
           <button className="terminal-close" onClick={onClose}>X</button>
         </div>
       </div>
+
+      {(safeMode || sessionType === 'protected_agent' || unsafeCommand) && (
+        <div className="terminal-safety-banner">
+          {safeMode && <span>SAFE MODE</span>}
+          {sessionType === 'protected_agent' && (
+            <span>Manual approvals required for {baseCommand || 'protected agent'}</span>
+          )}
+          {unsafeCommand && sessionType !== 'protected_agent' && (
+            <span>Custom command: review terminal actions manually</span>
+          )}
+        </div>
+      )}
 
       {/* Git dropdown */}
       {gitMenuOpen && (
