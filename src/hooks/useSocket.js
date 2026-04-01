@@ -12,7 +12,13 @@ export function useSocket() {
   const [notifications, setNotifications] = useState([]);
   const [orchestratorQueue, setOrchestratorQueue] = useState([]);
   const [aiSummaries, setAiSummaries] = useState({});
-  const [aiStatus, setAiStatus] = useState({ autoRespondEnabled: true, coordinationEnabled: false });
+  const [aiStatus, setAiStatus] = useState({
+    autoRespondEnabled: false,
+    coordinationEnabled: false,
+    safeMode: true,
+    protectedAgentCommands: [],
+    defaultSessionCommand: 'claude',
+  });
   const [autoResponses, setAutoResponses] = useState([]);
   const [aiDiffs, setAiDiffs] = useState({});
   const [aiBranches, setAiBranches] = useState({});
@@ -99,19 +105,13 @@ export function useSocket() {
         } catch (e) { /* audio not available */ }
       }
 
-      // Browser notification — show when tab is not visible
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
+      // Browser notification
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
-          const browserNotif = new Notification('CC Gym', {
+          new Notification('CC Gym', {
             body: notif.message,
             icon: '/favicon.ico',
-            tag: `cc-gym-${notif.sessionId}`,
-            requireInteraction: notif.type === 'input_needed',
           });
-          browserNotif.onclick = () => {
-            window.focus();
-            browserNotif.close();
-          };
         } catch (e) { /* notification not available */ }
       }
     });
@@ -174,9 +174,13 @@ export function useSocket() {
     return apiCall('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectId, name: `Session ${Date.now() % 10000}`, command: 'claude' }),
+      body: JSON.stringify({
+        projectId,
+        name: `Session ${Date.now() % 10000}`,
+        command: aiStatus.defaultSessionCommand || 'claude',
+      }),
     });
-  }, [apiCall]);
+  }, [apiCall, aiStatus.defaultSessionCommand]);
 
   const deleteSession = useCallback((id) => {
     return apiCall(`/api/sessions/${id}`, { method: 'DELETE' });

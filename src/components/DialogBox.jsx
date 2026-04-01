@@ -201,9 +201,9 @@ export function CreateProjectDialog({ onSubmit, onCancel, serverError }) {
   );
 }
 
-export function CreateSessionDialog({ projectId, projectName, onSubmit, onCancel }) {
+export function CreateSessionDialog({ projectId, projectName, defaultCommand = 'claude', onSubmit, onCancel }) {
   const [name, setName] = useState('');
-  const [command, setCommand] = useState('claude');
+  const [command, setCommand] = useState(defaultCommand);
 
   return (
     <div className="pkmn-overlay" onClick={onCancel}>
@@ -218,7 +218,7 @@ export function CreateSessionDialog({ projectId, projectName, onSubmit, onCancel
             </div>
             <div className="pkmn-field">
               <label>COMMAND</label>
-              <input type="text" value={command} onChange={e => setCommand(e.target.value)} placeholder="claude" />
+              <input type="text" value={command} onChange={e => setCommand(e.target.value)} placeholder={defaultCommand} />
             </div>
             <div className="pkmn-menu-list">
               <button type="submit" className="pkmn-menu-item">

@@ -15,18 +15,36 @@ import { AIOrchestrator } from './ai-orchestrator.js';
 import { WorktreeManager } from './worktree-manager.js';
 import { GitMonitor } from './git-monitor.js';
 import { StateDetector } from './state-detector.js';
+import { buildSafeModeConfig, classifyCommand } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv.includes('--production');
+const safeModeConfig = buildSafeModeConfig(process.env);
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (safeModeConfig.allowedOrigins.length === 0) return true;
+  return safeModeConfig.allowedOrigins.includes(origin);
+}
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*' },
+  cors: {
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) callback(null, true);
+      else callback(new Error(`Origin not allowed: ${origin}`));
+    },
+  },
   maxHttpBufferSize: 1e8,
 });
 
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) callback(null, true);
+    else callback(new Error(`Origin not allowed: ${origin}`));
+  },
+}));
 app.use(express.json({ limit: '20mb' }));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
@@ -55,13 +73,13 @@ const terminalManager = new TerminalManager({ dataDir });
 const stateDetector = new StateDetector();
 const orchestrator = new Orchestrator({ stateDetector });
 const gitMonitor = new GitMonitor();
-const aiOrchestrator = new AIOrchestrator({ terminalManager, gitMonitor, store });
+const aiOrchestrator = new AIOrchestrator({ terminalManager, gitMonitor, store, safeModeConfig });
 const worktreeManager = new WorktreeManager();
 const sessionSummaries = {};
 const waitingNotified = new Set(); // Track sessions that have already sent "needs input" this turn
 
 // Wire up StateDetector status change callback (needs aiOrchestrator + io)
-stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
+stateDetector.onStatusChange = (sessionId, newStatus, granularState, detail) => {
   const session = store.getSession(sessionId);
   if (!session) return;
 
@@ -79,7 +97,12 @@ stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
     waitingNotified.delete(sessionId);
   }
 
-  store.updateSession(sessionId, { status: newStatus });
+  // Store granular state and detail for frontend display
+  const sessionUpdate = { status: newStatus, granularState };
+  if (detail) {
+    sessionUpdate.stateDetail = detail;
+  }
+  store.updateSession(sessionId, sessionUpdate);
   io.emit('sessions:updated', store.getSessions());
 
   // Notify AI orchestrator of status changes
@@ -96,30 +119,11 @@ stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
     const starterName = session.starter
       ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
       : session.name;
-    const summary = aiOrchestrator.getSummaries()[sessionId];
     io.emit('notification', {
       sessionId,
       type: 'input_needed',
       message: `${starterName} needs your input!`,
       projectId: session.projectId,
-      branch: session.branch,
-      summary: summary?.summary,
-    });
-  }
-
-  // Notify for completed state
-  if (newStatus === 'completed') {
-    const starterName = session.starter
-      ? session.starter.charAt(0).toUpperCase() + session.starter.slice(1)
-      : session.name;
-    const summary = aiOrchestrator.getSummaries()[sessionId];
-    io.emit('notification', {
-      sessionId,
-      type: 'completed',
-      message: `${starterName} finished!${summary?.summary ? ' ' + summary.summary : ''}`,
-      projectId: session.projectId,
-      branch: session.branch,
-      summary: summary?.summary,
     });
   }
 };
@@ -127,8 +131,16 @@ stateDetector.onStatusChange = (sessionId, newStatus, granularState) => {
 // On server startup, reset sessions that claim to be running but have no pty
 // (happens after server crash/restart — ptys are in-memory only)
 for (const session of store.getSessions()) {
+  const commandMeta = classifyCommand(session.command || 'claude');
+  const normalization = {};
+  if (session.sessionType !== commandMeta.sessionType) normalization.sessionType = commandMeta.sessionType;
+  if (session.baseCommand !== commandMeta.baseCommand) normalization.baseCommand = commandMeta.baseCommand;
+  if (session.unsafeCommand !== commandMeta.unsafeCommand) normalization.unsafeCommand = commandMeta.unsafeCommand;
   if (session.status === 'active' || session.status === 'working' || session.status === 'waiting') {
-    store.updateSession(session.id, { status: 'idle' });
+    normalization.status = 'idle';
+  }
+  if (Object.keys(normalization).length > 0) {
+    store.updateSession(session.id, normalization);
   }
 }
 
@@ -253,6 +265,9 @@ app.post('/api/sessions', async (req, res) => {
   const { projectId, name, command } = req.body;
   const project = store.getProject(projectId);
   if (!project) return res.status(404).json({ error: 'project not found' });
+  if (!fs.existsSync(project.path)) {
+    return res.status(400).json({ error: `Project path does not exist: ${project.path}` });
+  }
 
   const session = store.createSession(projectId, name || 'New Session', command);
 
@@ -346,6 +361,13 @@ app.get('/api/orchestrator/status', (req, res) => {
     ...aiOrchestrator.getStatus(),
     conflicts: aiOrchestrator.getConflicts(),
     prStatus: aiOrchestrator.getPRStatus(),
+    safeModeConfig: {
+      safeMode: safeModeConfig.safeMode,
+      host: safeModeConfig.host,
+      allowedOrigins: safeModeConfig.allowedOrigins,
+      protectedAgentCommands: safeModeConfig.protectedAgentCommands,
+      defaultSessionCommand: safeModeConfig.defaultSessionCommand,
+    },
   });
 });
 
@@ -480,7 +502,14 @@ io.on('connection', (socket) => {
       const parts = cmd.split(/\s+/);
       let command = parts[0];
       let commandArgs = parts.slice(1);
+      const commandMeta = classifyCommand(cmd);
       const isClaudeCmd = command === 'claude';
+
+      store.updateSession(sessionId, {
+        sessionType: commandMeta.sessionType,
+        baseCommand: commandMeta.baseCommand,
+        unsafeCommand: commandMeta.unsafeCommand,
+      });
 
       if (isClaudeCmd && session.claudeSessionId) {
         // Re-spawning after crash: resume the previous Claude conversation
@@ -493,6 +522,14 @@ io.on('connection', (socket) => {
 
       try {
         const cwd = session.worktreePath || project.path;
+        // Validate cwd exists — non-existent cwd causes silent exit code 1
+        if (!fs.existsSync(cwd)) {
+          socket.emit('terminal:error', {
+            sessionId,
+            error: `Project path does not exist: ${cwd}`,
+          });
+          return;
+        }
         term = terminalManager.create(sessionId, command, commandArgs, {
           cwd,
           onData: (data) => {
@@ -690,9 +727,17 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 const PORT = process.env.PORT || 3456;
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, safeModeConfig.host, () => {
   console.log(`\n  CC Gym server running on http://localhost:${PORT}`);
-  console.log(`  Network access: http://${getNetworkIP()}:${PORT}`);
+  console.log(`  Bound host: ${safeModeConfig.host}`);
+  if (safeModeConfig.host !== '127.0.0.1') {
+    console.log(`  Network access: http://${getNetworkIP()}:${PORT}`);
+  }
+  if (safeModeConfig.safeMode) {
+    console.log('  OpenAI Safe Mode: ON');
+    console.log(`  Allowed origins: ${safeModeConfig.allowedOrigins.join(', ')}`);
+  }
+  console.log(`  Default session command: ${safeModeConfig.defaultSessionCommand}`);
   console.log(`  AI Orchestrator: auto-respond ${aiOrchestrator.autoRespondEnabled ? 'ON' : 'OFF'}`);
   console.log(`  Git Monitor: active (polling every 15s)\n`);
   aiOrchestrator.startGitMonitor();

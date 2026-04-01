@@ -13,10 +13,11 @@ const AUTO_RESPOND_COOLDOWN_MS = 3000;
 const GIT_POLL_INTERVAL_MS = 15000;  // Poll git state every 15s
 
 export class AIOrchestrator {
-  constructor({ terminalManager, gitMonitor, store }) {
+  constructor({ terminalManager, gitMonitor, store, safeModeConfig = {} }) {
     this.terminalManager = terminalManager;
     this.gitMonitor = gitMonitor;
     this.store = store;
+    this.safeModeConfig = safeModeConfig;
 
     // --- Summaries ---
     this.summaries = {};           // sessionId -> { summary, action, updatedAt }
@@ -30,7 +31,7 @@ export class AIOrchestrator {
     this.onChange = null;
 
     // --- Auto-respond ---
-    this.autoRespondEnabled = true;
+    this.autoRespondEnabled = false;
     this.autoResponses = [];
     this.onAutoRespond = null;
 
@@ -120,6 +121,12 @@ export class AIOrchestrator {
 
     const ynMatch = cleanTail.match(/(.{0,300})\(Y\/n\)\s*$/i);
     if (!ynMatch) return false;
+
+    const blockedReason = this.getAutoRespondBlockReason(sessionId);
+    if (blockedReason) {
+      console.log(`[AI Orchestrator] Auto-respond blocked for ${sessionId}: ${blockedReason}`);
+      return false;
+    }
 
     const promptText = ynMatch[1].trim();
 
@@ -338,6 +345,12 @@ export class AIOrchestrator {
     const messages = this.pendingMessages[sessionId];
     if (!messages || messages.length === 0) return;
 
+    const blockedReason = this.getCoordinationBlockReason(sessionId);
+    if (blockedReason) {
+      console.log(`[AI Orchestrator] Coordination delivery blocked for ${sessionId}: ${blockedReason}`);
+      return;
+    }
+
     for (const message of messages) {
       try {
         this.terminalManager.write(sessionId, message + '\n');
@@ -358,6 +371,12 @@ export class AIOrchestrator {
   sendCoordinationMessage(sessionId, message) {
     const session = this.store?.getSession(sessionId);
     if (!session) return false;
+
+    const blockedReason = this.getCoordinationBlockReason(sessionId);
+    if (blockedReason) {
+      console.log(`[AI Orchestrator] Coordination blocked for ${sessionId}: ${blockedReason}`);
+      return false;
+    }
 
     if (session.status === 'waiting') {
       try {
@@ -738,12 +757,33 @@ Respond ONLY with the JSON array, nothing else:`;
     return {
       autoRespondEnabled: this.autoRespondEnabled,
       coordinationEnabled: this.coordinationEnabled,
+      safeMode: !!this.safeModeConfig.safeMode,
+      protectedAgentCommands: this.safeModeConfig.protectedAgentCommands || [],
+      defaultSessionCommand: this.safeModeConfig.defaultSessionCommand || 'claude',
       summaryCount: Object.keys(this.summaries).length,
       pendingCount: this.pendingSessions.size,
       processing: this._processing,
       trackedSessions: Object.keys(this.diffs).length,
       conflictProjects: Object.keys(this.conflicts).length,
     };
+  }
+
+  getAutoRespondBlockReason(sessionId) {
+    const session = this.store?.getSession(sessionId);
+    if (!session) return null;
+    if (session.sessionType === 'protected_agent') {
+      return `manual approval required for protected agent command "${session.baseCommand || session.command || 'unknown'}"`;
+    }
+    return null;
+  }
+
+  getCoordinationBlockReason(sessionId) {
+    const session = this.store?.getSession(sessionId);
+    if (!session) return null;
+    if (session.sessionType === 'protected_agent') {
+      return `automatic coordination disabled for protected agent command "${session.baseCommand || session.command || 'unknown'}"`;
+    }
+    return null;
   }
 
   remove(sessionId) {
