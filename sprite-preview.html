@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sprite Preview</title>
+  <style>
+    body { background: #1a1a2e; margin: 20px; font-family: monospace; }
+    .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sprite { text-align: center; }
+    .sprite canvas { display: block; image-rendering: pixelated; border: 1px solid #333; }
+    .sprite label { color: #ccc; font-size: 10px; display: block; margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div class="grid" id="grid"></div>
+  <script type="module">
+    import { REGIONS } from './src/game/sprites.js';
+    // We need access to the internal draw functions via the getPokemonSprite cache
+    // Instead, let's import drawPokemon directly
+    import { drawPokemon } from './src/game/sprites.js';
+
+    const allStarters = REGIONS.flatMap(r => r.starters);
+    const grid = document.getElementById('grid');
+    const SCALE = 6;
+
+    for (const name of allStarters) {
+      const div = document.createElement('div');
+      div.className = 'sprite';
+      const canvas = document.createElement('canvas');
+      canvas.width = 16 * SCALE;
+      canvas.height = 16 * SCALE;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      drawPokemon(ctx, 0, 0, name, SCALE);
+      div.appendChild(canvas);
+      const label = document.createElement('label');
+      label.textContent = name;
+      div.appendChild(label);
+      grid.appendChild(div);
+    }
+  </script>
+</body>
+</html>

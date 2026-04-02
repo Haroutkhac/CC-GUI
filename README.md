@@ -2,6 +2,10 @@
 
 A Pokemon-themed GUI for managing multiple [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions. Walk around a pixel-art world, spawn Claude sessions as Pokemon, and triage them from a command center.
 
+## Demo
+
+[Watch the screen recording](docs/media/cc-gui-demo.mov)
+
 ## What it does
 
 - **Projects as tables** — each project points to a directory on your machine

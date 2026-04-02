@@ -3,8 +3,9 @@ import { PtyLogger } from './pty-logger.js';
 import { TranscriptWatcher } from './transcript-watcher.js';
 import { stripAnsi, extractOSC, STATUS_BUFFER_LIMIT, TITLE_BUSY_PREFIXES, TITLE_IDLE_PREFIX } from './utils.js';
 
-// Braille spinner chars used by Claude Code (from constants/figures.ts)
-const SPINNER_PATTERN = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/;
+// Spinner chars used by Claude Code (from components/Spinner/utils.ts)
+// macOS: · ✢ ✳ ✶ ✻ ✽  |  Ghostty: · ✢ ✳ ✶ ✻ *  |  reduced-motion: ●
+const SPINNER_PATTERN = /[·✢✳✶✻✽●*]/;
 const SPINNER_COOLDOWN_MS = 2000;
 
 // Map granular states to backward-compatible status values
@@ -103,7 +104,10 @@ export class StateDetector {
     const buf = this.statusBuffers[sessionId];
 
     // 1. Spinner detection (highest priority for "working")
-    if (SPINNER_PATTERN.test(rawData)) {
+    //    Strip OSC sequences first — ✳ appears both as a spinner frame
+    //    and as the idle title prefix; matching inside OSC would false-positive.
+    const visibleData = rawData.replace(/\x1b\][^\x07]*\x07/g, '');
+    if (SPINNER_PATTERN.test(visibleData)) {
       state.lastSpinnerTime = Date.now();
       state.lastClearTime = 0; // real work started — re-enable prompt detection
       this._setPtyState(sessionId, 'working');

@@ -9,9 +9,10 @@ export class TranscriptWatcher {
     this.watchers = new Map(); // sessionId -> entry
   }
 
-  // Encode a path the way Claude Code does: replace / with -
+  // Encode a path the way Claude Code does: replace all non-alphanumeric with -
+  // (matches sanitizePath in utils/sessionStoragePortable.ts)
   _encodePath(p) {
-    return p.replace(/\//g, '-');
+    return p.replace(/[^a-zA-Z0-9]/g, '-');
   }
 
   _resolveTranscriptPath(cwd, claudeSessionId) {
