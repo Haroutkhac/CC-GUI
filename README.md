@@ -92,6 +92,14 @@ DEFAULT_SESSION_COMMAND=codex npm run dev
 
 That changes the default command used by quick-create and the new-session dialog. You can still override the command per session.
 
+### Authentication
+
+CC-GUI protects all `/api/*` routes and Socket.IO connections with a local auth token.
+
+- On first launch, the server creates `~/.cc-gui/auth-token`.
+- The frontend fetches the token from `/api/auth-token` (localhost only).
+- For remote dev or custom clients, set `VITE_AUTH_TOKEN` to the token value.
+
 ### Running in production
 
 ```bash
@@ -148,6 +156,12 @@ Click any item to jump straight into that terminal.
 
 Shortcuts are disabled when typing in input fields or inside a terminal.
 
+### Tests
+
+```bash
+npm test
+```
+
 ### Seed test data
 
 To populate the world with sample projects and sessions:
@@ -163,10 +177,23 @@ scripts/
   seed.js               Populates sample projects and sessions for testing
 
 server/
-  index.js              Express + Socket.IO server, REST API, status detection
+  index.js              Express + Socket.IO entrypoint, auth, wiring
+  routes.js             REST API routes and handlers
+  socket-handlers.js    Socket.IO event handlers
+  auth.js               Shared secret auth token + middleware
   store.js              JSON file persistence (data/store.json)
   terminal-manager.js   node-pty wrapper for spawning and managing PTY processes
   orchestrator.js       Monitors terminal output and ranks sessions by priority
+  ai-orchestrator.js    Summaries, PR diffs, auto-respond, coordination
+  notification-wiring.js Notification + status broadcasts
+  state-detector.js     PTY + transcript status detection
+  transcript-watcher.js Claude transcript watcher
+  summarizer.js         Session summaries
+  conflict-detector.js  Conflict detection for sessions/branches
+  pr-creator.js         PR creation helpers
+  coordinator.js        Auto-coordination helpers
+  types.js              JSDoc typedefs
+  utils.js              Safe mode + helpers
 
 src/
   App.jsx               Root component, state management, keyboard shortcuts
@@ -180,6 +207,7 @@ src/
     StatusDashboard.jsx Full team overview grouped by project
     DialogBox.jsx       Project picker (discovery) + session/project dialogs
     HUD.jsx             Top bar with stats, buttons, shortcut reference
+    NotificationPanel.jsx Activity feed + notification history
     NotificationToast.jsx Toast notifications for session state changes
   game/
     engine.js           Tile-based 2D engine with camera, pathfinding, interaction
