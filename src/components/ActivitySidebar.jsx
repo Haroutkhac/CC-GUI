@@ -205,7 +205,7 @@ export default function ActivitySidebar({
                   className={`sidebar-dot ${item.needsInput ? 'blink' : ''}`}
                   style={{ background: item.needsInput ? '#C08800' : item.sessionStatus === 'completed' ? '#2ECC71' : '#3060A0' }}
                 />
-                <PixelAvatar starter={item.starter} size={expanded ? 2 : 2} />
+                <PixelAvatar starter={item.starter} size={3} />
                 <div className="sidebar-notif-text">
                   <span className="sidebar-notif-name">{capitalize(item.starter || '?')}</span>
                   {expanded && (
