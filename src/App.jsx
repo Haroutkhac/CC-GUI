@@ -3,7 +3,7 @@ import GameCanvas from './components/GameCanvas.jsx';
 import TerminalOverlay from './components/TerminalOverlay.jsx';
 import { CreateProjectDialog, CreateSessionDialog, TableContextMenu, ConfirmDialog } from './components/DialogBox.jsx';
 import NotificationToast from './components/NotificationToast.jsx';
-import NotificationPanel from './components/NotificationPanel.jsx';
+import ActivitySidebar from './components/ActivitySidebar.jsx';
 import HUD from './components/HUD.jsx';
 import StatusDashboard from './components/StatusDashboard.jsx';
 import SessionCarousel from './components/SessionCarousel.jsx';
@@ -65,7 +65,7 @@ export default function App() {
   const [orchestratorOpen, setOrchestratorOpen] = useState(false);
   const [carouselProject, setCarouselProject] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null); // { message, onConfirm }
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   // Open terminal for a session
   const openTerminal = useCallback((sessionId) => {
@@ -174,7 +174,7 @@ export default function App() {
         if (confirmDialog) setConfirmDialog(null);
         else if (activeTerminal) setActiveTerminal(null);
         else if (orchestratorOpen) setOrchestratorOpen(false);
-        else if (notificationsOpen) setNotificationsOpen(false);
+        else if (sidebarExpanded) setSidebarExpanded(false);
         else if (carouselProject) setCarouselProject(null);
         else if (dashboardOpen) setDashboardOpen(false);
         else if (dialog) { setDialog(null); setDialogData(null); }
@@ -226,7 +226,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKey, true);
     return () => window.removeEventListener('keydown', handleKey, true);
-  }, [activeTerminal, dialog, dashboardOpen, orchestratorOpen, notificationsOpen, carouselProject, confirmDialog, projects, orchestratorQueue, openTerminal, handleQuickCreate]);
+  }, [activeTerminal, dialog, dashboardOpen, orchestratorOpen, sidebarExpanded, carouselProject, confirmDialog, projects, orchestratorQueue, openTerminal, handleQuickCreate]);
 
   // Track last opened terminal so we can keep it mounted (hidden) when closed
   useEffect(() => {
@@ -253,7 +253,7 @@ export default function App() {
         onDeleteTable={handleDeleteTable}
         onDismissNPC={handleDismissNPC}
         onCreateAtTable={handleQuickCreate}
-        inputPaused={!!activeTerminal || !!dialog || dashboardOpen || orchestratorOpen || notificationsOpen || !!carouselProject || !!confirmDialog}
+        inputPaused={!!activeTerminal || !!dialog || dashboardOpen || orchestratorOpen || !!carouselProject || !!confirmDialog}
       />
 
       <HUD
@@ -265,23 +265,23 @@ export default function App() {
         notificationCount={sessions.filter(s => s.status === 'waiting').length + notifications.length}
         onCreateProject={() => setDialog('createProject')}
         onOpenOrchestrator={() => setOrchestratorOpen(true)}
-        onToggleNotifications={() => setNotificationsOpen(prev => !prev)}
-        notificationsOpen={notificationsOpen}
+        onToggleNotifications={() => setSidebarExpanded(prev => !prev)}
+        notificationsOpen={sidebarExpanded}
       />
 
-      {notificationsOpen && (
-        <NotificationPanel
-          sessions={sessions}
-          projects={projects}
-          aiSummaries={aiSummaries}
-          notifications={notifications}
-          onSelectSession={(sessionId) => {
-            setNotificationsOpen(false);
-            openTerminal(sessionId);
-          }}
-          onClose={() => setNotificationsOpen(false)}
-        />
-      )}
+      <ActivitySidebar
+        sessions={sessions}
+        projects={projects}
+        notifications={notifications}
+        orchestratorQueue={orchestratorQueue}
+        aiSummaries={aiSummaries}
+        expanded={sidebarExpanded}
+        onToggleExpand={() => setSidebarExpanded(prev => !prev)}
+        onSelectSession={(sessionId) => {
+          setSidebarExpanded(false);
+          openTerminal(sessionId);
+        }}
+      />
 
       <MobileControls />
 
