@@ -16,8 +16,8 @@ export default function App() {
     socket, connected, projects, sessions, summaries, notifications, orchestratorQueue,
     aiSummaries, aiDiffs, aiBranches, aiConflicts, prStatuses, aiStatus,
     createProject, deleteProject, createSession, quickCreateSession, deleteSession,
-    attachTerminal, detachTerminal, sendTerminalInput, resizeTerminal,
-    dismissNotification, createPR, createAllPRs,
+    attachTerminal, detachTerminal, sendTerminalInput, resizeTerminal, restartTerminal,
+    dismissNotification, pushNotification, createPR, createAllPRs,
   } = useSocket();
 
   const [activeTerminal, setActiveTerminal] = useState(null);
@@ -155,8 +155,13 @@ export default function App() {
       if (session?.id) openTerminal(session.id);
     } catch (err) {
       console.error('Failed to create session:', err);
+      pushNotification({
+        type: 'error',
+        title: 'Could not spawn Pokémon',
+        body: err?.message || 'Session creation failed',
+      });
     }
-  }, [quickCreateSession, openTerminal]);
+  }, [quickCreateSession, openTerminal, pushNotification]);
 
   // Switch terminal (swipe)
   const handleSwitchSession = useCallback((sessionId) => {
@@ -370,6 +375,7 @@ export default function App() {
           resizeTerminal={resizeTerminal}
           attachTerminal={attachTerminal}
           detachTerminal={detachTerminal}
+          restartTerminal={restartTerminal}
           projectSessions={projectSessionsForSwipe}
           onSwitchSession={handleSwitchSession}
         />
