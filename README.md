@@ -1,6 +1,6 @@
 # CC-GUI
 
-A Pokemon-themed GUI for managing multiple [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions. Walk around a pixel-art world, spawn Claude sessions as Pokemon, and triage them from a command center.
+A retro-themed dashboard for managing multiple [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions in parallel. Spawn sessions per project, watch them work in a card grid, and jump into any terminal when one needs your attention.
 
 ## Demo
 
@@ -10,11 +10,30 @@ Full-quality video: [cc-gui-demo.mov](docs/media/cc-gui-demo.mov)
 
 ## What it does
 
-- **Projects as tables** — each project points to a directory on your machine
-- **Sessions as Pokemon** — each session runs `claude` (or any command) in that project's directory via a real PTY
-- **Command Center** — orchestrator watches all terminals and ranks them by urgency (needs confirmation > waiting for input > errors > working > idle)
+- **Projects ("Tables")** — each project points to a directory on your machine
+- **Sessions ("Pokémon")** — each session runs `claude` (or any command) in that project's directory via a real PTY
+- **Agent grid** — the main view shows every session for the selected project as a card, sorted by priority (urgent → waiting → working → idle), with live state, summary, branch info, and PR controls
+- **Activity sidebar** — always-visible rail on the right with alerts and a cross-project priority queue; click any item to jump into its terminal
+- **Terminal overlay** — full xterm.js terminal with mobile support, session swipe/switch, and one-tap restart
 - **Project discovery** — scans your local git repos and GitHub account so you can add projects in one click
-- **Terminal overlay** — full xterm.js terminal with mobile support, quick actions, and session switching
+
+## How it's laid out
+
+```
+ ┌──────────────────────────────────────────────────────────────┐
+ │ HUD   CC GYM · SAFE MODE · stats · [project tabs]  [+ TABLE] │
+ ├────────────────────────────────────────┬─────────────────────┤
+ │                                        │                     │
+ │   AGENT GRID                           │   ACTIVITY SIDEBAR  │
+ │   (cards for the active project,       │   · Alerts          │
+ │    sorted by priority)                 │   · Queue           │
+ │                                        │     (all projects)  │
+ │                                        │                     │
+ └────────────────────────────────────────┴─────────────────────┘
+              click a card → full-screen terminal overlay
+```
+
+The server spawns each session as a real PTY via `node-pty` and streams output over Socket.IO. A server-side orchestrator strips ANSI, detects Claude's prompt/waiting states, and broadcasts a priority ranking that drives the grid order, card accents, and sidebar queue.
 
 ## Setup
 
@@ -23,7 +42,7 @@ Full-quality video: [cc-gui-demo.mov](docs/media/cc-gui-demo.mov)
 | Dependency | Required | Purpose |
 |-----------|----------|---------|
 | [Node.js](https://nodejs.org/) 18+ | Yes | Runtime for the server and build tools |
-| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) | Yes | The `claude` command that sessions run |
+| [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) | Yes | The `claude` command that sessions run by default |
 | [GitHub CLI](https://cli.github.com/) (`gh`) | No | Enables GitHub repo discovery in the project picker |
 
 **Verify your setup:**
@@ -34,19 +53,14 @@ claude --version  # Should print the Claude Code version
 gh auth status    # Optional — should show "Logged in" if you want GitHub discovery
 ```
 
-`node-pty` (a dependency) compiles native code, so you also need a C/C++ toolchain. On macOS this means Xcode Command Line Tools (`xcode-select --install`). On Linux, `build-essential` and `python3`.
+`node-pty` compiles native code, so you also need a C/C++ toolchain. On macOS: `xcode-select --install`. On Linux: `build-essential` and `python3`.
 
 ### Installation
 
 ```bash
-# Clone the repo
 git clone https://github.com/Haroutkhac/CC-GUI.git
 cd CC-GUI
-
-# Install dependencies (includes native compilation of node-pty)
 npm install
-
-# Create your local data file from the template
 cp data/store.example.json data/store.json
 ```
 
@@ -62,16 +76,34 @@ This starts two processes concurrently:
 
 Open **http://localhost:5173** in your browser.
 
-### Safe mode defaults
+### Running in production
 
-CC-GUI now starts in `OPENAI_SAFE_MODE=true` by default.
+```bash
+npm run build    # Build the React frontend into dist/
+npm start        # Server serves both API and static frontend on :3456
+```
 
-- Server host defaults to `127.0.0.1`
-- CORS is restricted to explicit local origins
+### Authentication
+
+CC-GUI protects all `/api/*` routes and Socket.IO connections with a local auth token.
+
+- On first launch the server creates `~/.cc-gui/auth-token`.
+- The frontend fetches it from `/api/auth-token` (localhost only).
+- For remote dev or custom clients, set `VITE_AUTH_TOKEN` to the token value.
+
+## Safe mode
+
+CC-GUI starts in `OPENAI_SAFE_MODE=true` by default. This is the recommended posture — the app spawns real shells, so you only want it reachable from your own machine.
+
+What safe mode enforces:
+
+- Server binds to `127.0.0.1` (loopback only)
+- CORS restricted to explicit local origins
 - Auto-respond starts disabled
-- Sessions running protected agent commands such as `codex` or `openai` require manual approvals
+- Sessions running protected agent commands (e.g. `codex`, `openai`) require manual approvals
+- A `SAFE MODE ON` banner renders in the HUD so the state is always visible
 
-Optional environment variables:
+Relevant environment variables:
 
 ```bash
 OPENAI_SAFE_MODE=true
@@ -82,79 +114,57 @@ PROTECTED_AGENT_COMMANDS=codex,openai
 DEFAULT_SESSION_COMMAND=claude
 ```
 
-If you set `HOST` to a non-local address while safe mode is on, startup will fail unless `ALLOW_UNSAFE_REMOTE=true` is also set.
-
-To boot the GUI in Codex mode, set:
-
-```bash
-DEFAULT_SESSION_COMMAND=codex npm run dev
-```
-
-That changes the default command used by quick-create and the new-session dialog. You can still override the command per session.
-
-### Authentication
-
-CC-GUI protects all `/api/*` routes and Socket.IO connections with a local auth token.
-
-- On first launch, the server creates `~/.cc-gui/auth-token`.
-- The frontend fetches the token from `/api/auth-token` (localhost only).
-- For remote dev or custom clients, set `VITE_AUTH_TOKEN` to the token value.
-
-### Running in production
-
-```bash
-npm run build    # Build the React frontend into dist/
-npm start        # Start the server serving the built files
-```
-
-Then open `http://localhost:3456`. The server serves both the API and the static frontend.
+Setting `HOST` to a non-local address while safe mode is on fails startup unless `ALLOW_UNSAFE_REMOTE=true` is also set. To boot with Codex as the default command: `DEFAULT_SESSION_COMMAND=codex npm run dev` (you can still override the command per session).
 
 ## Usage
 
 ### 1. Add a project
 
-Press `N` or click `+ TABLE` in the top-right corner. The project picker shows:
+Click **+ TABLE** in the top-right (or press `N`). The picker shows:
 
 - **GITHUB** — repos from your GitHub account (requires `gh` CLI). Tagged `LOCAL` if already cloned, `REMOTE` if not.
-- **LOCAL** — git repos found in your home directory (scans 3 levels deep)
+- **LOCAL** — git repos found in your home directory (scans 3 levels deep).
 
-Click any repo to add it, or choose **ENTER PATH MANUALLY** to type an absolute path.
+Click any repo, or choose **ENTER PATH MANUALLY** to type an absolute path.
 
-### 2. Create a session
+### 2. Switch between projects
 
-Click a table in the game world to see its sessions, then create one. Each session defaults to running `DEFAULT_SESSION_COMMAND` in the project's directory, which is `claude` unless you override it. You can change the command to anything (`codex`, `bash`, `npm run dev`, etc.).
+The HUD shows one tab per project. Click a tab (or the `GALLERY` button for a swipeable view) to make it the active project — the agent grid updates to show its sessions.
 
-### 3. Open a terminal
+### 3. Spawn a session
 
-Click a Pokemon (session) to open its terminal. This spawns the command in a real PTY — it's identical to running it in your regular terminal. Type prompts, approve tool use, everything works.
+Press `S` to quick-spawn a session on the active project, or open `GALLERY` → `+` to name it and customize the command. Each session defaults to `DEFAULT_SESSION_COMMAND` (usually `claude`) in the project's directory; you can override with anything (`codex`, `bash`, `npm run dev`, etc.).
 
-### 4. Triage with the Command Center
+### 4. Open a terminal
 
-Press `K` or click `CMD CTR` to open the orchestrator. It monitors all running sessions and shows what needs your attention:
+Click any card in the agent grid. This opens a full-screen xterm.js terminal attached to the session's PTY — identical to running the command in your own shell. Type prompts, approve tool use, everything works. Swipe (mobile) or use the carousel to switch between sessions in the same project without closing.
+
+### 5. Triage from the sidebar
+
+The **Activity** sidebar on the right is always visible and aggregates across all projects:
+
+- **Alerts** — dismissible notifications (errors, session state changes, conflicts)
+- **Queue** — sessions ranked by priority
 
 | Priority | Meaning | Example |
 |----------|---------|---------|
 | CRITICAL | Needs confirmation | Claude asking `(Y/n)` to approve a tool |
-| HIGH | Waiting for input or errored | Claude showing the `>` prompt, or a command that failed |
-| MEDIUM | Task completed | Claude finished and output shows `Done` or `✓` |
+| HIGH | Waiting for input or errored | Claude showing the `>` prompt, or a failed command |
+| MEDIUM | Task completed | Claude finished; output shows `Done` or `✓` |
 | LOW | Actively working | Claude is thinking, reading files, writing code |
 
-Click any item to jump straight into that terminal.
+Click any queue item to jump straight into its terminal.
 
-### 5. Keyboard shortcuts
+### Keyboard shortcuts
 
 | Key | Action |
 |-----|--------|
-| `K` | Toggle Command Center |
 | `N` | New project |
-| `S` | Spawn session |
-| `T` | Team dashboard |
-| `1-9` | Jump to session by priority rank |
-| `ESC` | Close / back |
-| `WASD` / Arrows | Move character |
-| `Enter` / `Space` | Interact with nearby table or Pokemon |
+| `S` | Spawn session on the active project |
+| `1`–`9` | Jump to the Nth session in the priority queue |
+| `ESC` | Close / back (closes dialogs, then terminal, then carousel) |
 
-Shortcuts are disabled when typing in input fields or inside a terminal.
+Shortcuts are disabled while typing in input fields and while a terminal is open (so your keystrokes go to the PTY). Click the `?` button in the HUD for a live reference.
 
 ### Tests
 
@@ -163,8 +173,6 @@ npm test
 ```
 
 ### Seed test data
-
-To populate the world with sample projects and sessions:
 
 ```bash
 node scripts/seed.js
@@ -192,36 +200,32 @@ server/
   conflict-detector.js  Conflict detection for sessions/branches
   pr-creator.js         PR creation helpers
   coordinator.js        Auto-coordination helpers
-  types.js              JSDoc typedefs
-  utils.js              Safe mode + helpers
+  utils.js              Safe mode config + command classification
 
 src/
   App.jsx               Root component, state management, keyboard shortcuts
   main.jsx              Entry point
-  hooks/useSocket.js    Socket.IO React hook (manages all server communication)
+  hooks/useSocket.js    Socket.IO React hook (all server communication)
   components/
-    GameCanvas.jsx      Pixel-art 2D game world (canvas-based)
+    HUD.jsx             Top bar: project tabs, stats, safe-mode banner, shortcut hints
+    AgentGrid.jsx       Main grid — one card per session, sorted by priority
+    ActivitySidebar.jsx Right-side rail with alerts and cross-project queue
+    AlertsSection.jsx   Notification/alert list inside the sidebar
     TerminalOverlay.jsx xterm.js terminal emulator with mobile support
-    OrchestratorPanel.jsx Command center — prioritized session queue
     SessionCarousel.jsx Swipeable session browser per project
-    StatusDashboard.jsx Full team overview grouped by project
-    DialogBox.jsx       Project picker (discovery) + session/project dialogs
-    HUD.jsx             Top bar with stats, buttons, shortcut reference
-    NotificationPanel.jsx Activity feed + notification history
-    NotificationToast.jsx Toast notifications for session state changes
-  game/
-    engine.js           Tile-based 2D engine with camera, pathfinding, interaction
-    sprites.js          Pixel art drawing functions for all Pokemon + environment
+    DialogBox.jsx       Project picker, new-session dialog, confirm dialogs
+    MobileControls.jsx  Touch controls for mobile
+    ErrorBoundary.jsx   Top-level error boundary
   styles/
-    index.css           All styles (Pokemon retro theme)
+    index.css           All styles (retro Pokémon-inspired theme)
 ```
 
-**Data flow:** The React client communicates with the Express server over Socket.IO (WebSocket). When you open a terminal, the server spawns a PTY process via `node-pty` and streams its output to the client via Socket.IO rooms. The orchestrator listens to all terminal output server-side, strips ANSI codes, pattern-matches against Claude Code's prompt formats, and broadcasts priority rankings to all connected clients.
+**Data flow:** The React client talks to the Express server over Socket.IO. When you open a terminal, the server spawns a PTY via `node-pty` and streams its output into the session's Socket.IO room. The orchestrator listens to all terminal output server-side, strips ANSI codes, pattern-matches against Claude Code's prompt formats, and broadcasts priority rankings to every connected client.
 
 ## Troubleshooting
 
 **`npm install` fails on `node-pty`**
-You need a C/C++ compiler. On macOS: `xcode-select --install`. On Ubuntu/Debian: `sudo apt install build-essential python3`.
+You need a C/C++ compiler. macOS: `xcode-select --install`. Ubuntu/Debian: `sudo apt install build-essential python3`.
 
 **`claude` command not found when opening a session**
 The server adds `~/.local/bin` to the PATH for spawned processes. If your `claude` binary is elsewhere, check `which claude` and either symlink it or set the session command to the full path.
@@ -232,6 +236,9 @@ Make sure both the API server (`:3456`) and Vite (`:5173`) are running. `npm run
 **GitHub repos not showing in project picker**
 Install and authenticate the GitHub CLI: `gh auth login`.
 
+**Server refuses to start with a non-local `HOST`**
+That's safe mode doing its job. Set `ALLOW_UNSAFE_REMOTE=true` only if you understand the implications (see below).
+
 ## Security notice
 
 This tool spawns real terminal processes and provides full shell access through the browser. It is designed for **local use only**.
@@ -241,8 +248,8 @@ This tool spawns real terminal processes and provides full shell access through 
 - Anyone who can reach the server can execute arbitrary commands
 - The `/api/discover` endpoint lists git repos on your machine
 - **Do not expose this to the public internet**
-- For OpenAI/Codex sessions, keep approvals manual and do not share access to a logged-in session
-- Terminal scrollback and transcript-derived state may contain prompts, repo paths, and secrets; clean `data/scrollback/` regularly if you use protected agent sessions
+- For protected-agent sessions (Codex/OpenAI), keep approvals manual and do not share access to a logged-in session
+- Terminal scrollback and transcript-derived state may contain prompts, repo paths, and secrets; clean `data/scrollback/` regularly if you use protected-agent sessions
 
 For remote access, use a VPN or [Tailscale](https://tailscale.com).
 
