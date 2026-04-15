@@ -4,9 +4,9 @@ A Pokemon-themed GUI for managing multiple [Claude Code](https://docs.anthropic.
 
 ## Demo
 
-<video src="docs/media/cc-gui-demo.mov" controls muted playsinline></video>
+![CC-GUI demo](docs/media/cc-gui-demo-preview.gif)
 
-If the video does not load, download it here: [cc-gui-demo.mov](docs/media/cc-gui-demo.mov)
+Full-quality video: [cc-gui-demo.mov](docs/media/cc-gui-demo.mov)
 
 ## What it does
 
