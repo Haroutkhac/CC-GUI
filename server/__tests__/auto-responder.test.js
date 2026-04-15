@@ -90,4 +90,19 @@ describe('AutoResponder.checkAutoRespond', () => {
     expect(responses[0].sessionId).toBe('s1');
     expect(responses[0].response).toBe('Y');
   });
+
+  it('constructor accepts autoRespondEnabled=false and skips auto-respond', () => {
+    const terminalManager = { write: vi.fn() };
+    const responder = new AutoResponder({ terminalManager, autoRespondEnabled: false });
+    expect(responder.autoRespondEnabled).toBe(false);
+    const result = responder.checkAutoRespond('s1', 'Edit file? (Y/n)');
+    expect(result).toBe(false);
+    expect(terminalManager.write).not.toHaveBeenCalled();
+  });
+
+  it('constructor defaults autoRespondEnabled to true when not provided', () => {
+    const terminalManager = { write: vi.fn() };
+    const responder = new AutoResponder({ terminalManager });
+    expect(responder.autoRespondEnabled).toBe(true);
+  });
 });
