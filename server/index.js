@@ -105,6 +105,9 @@ function cleanupSessionState(sessionId) {
   stateDetector.remove(sessionId);
   delete sessionSummaries[sessionId];
   waitingNotified.delete(sessionId);
+  const pending = waitingNotified._pendingClears;
+  const t = pending?.get(sessionId);
+  if (t) { clearTimeout(t); pending.delete(sessionId); }
   orchestrator.remove(sessionId);
   aiOrchestrator.remove(sessionId);
 }
