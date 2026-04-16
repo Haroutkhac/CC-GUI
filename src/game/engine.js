@@ -169,6 +169,7 @@ export class GameEngine {
           x: tx, y: ty,
           name: project.name,
           region: project.region || 'Kanto',
+          pathMissing: !!project.pathMissing,
         });
 
         // Rug around table
@@ -590,12 +591,39 @@ export class GameEngine {
         const cx = px + tileSize / 2;
         // Centered on the table tile
         const cy = py + tileSize / 2;
-        ctx.fillStyle = 'rgba(56, 56, 56, 0.85)';
+        ctx.fillStyle = table.pathMissing ? 'rgba(192, 64, 64, 0.9)' : 'rgba(56, 56, 56, 0.85)';
         ctx.fillRect(Math.round(cx - lw / 2), Math.round(cy - lh / 2), Math.round(lw), Math.round(lh));
         ctx.fillStyle = '#F8F8F0';
         ctx.fillText(label, cx, cy);
       }
       ctx.restore();
+
+      // Pulsing "!" badge for tables whose project path is missing
+      const badgeTables = this.tablePositions.filter(t => t.pathMissing);
+      if (badgeTables.length > 0) {
+        const pulse = 0.6 + 0.4 * Math.abs(Math.sin(Date.now() / 300));
+        ctx.save();
+        for (const table of badgeTables) {
+          const px = table.x * tileSize;
+          const py = table.y * tileSize;
+          const bx = px + tileSize * 0.85;
+          const by = py - tileSize * 0.3;
+          const r = tileSize * 0.45;
+          ctx.fillStyle = `rgba(192, 64, 64, ${pulse})`;
+          ctx.beginPath();
+          ctx.arc(bx, by, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#383838';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = '#F8F8F0';
+          ctx.font = `bold ${Math.round(tileSize * 0.55)}px "Press Start 2P", monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('!', bx, by + 1);
+        }
+        ctx.restore();
+      }
     }
 
     ctx.restore();

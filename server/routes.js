@@ -45,6 +45,57 @@ export function registerRoutes(app, { store, aiOrchestrator, worktreeManager, te
     res.json(project);
   });
 
+  app.patch('/api/projects/:id', (req, res) => {
+    const project = store.getProject(req.params.id);
+    if (!project) return res.status(404).json({ error: 'project not found' });
+
+    const updates = {};
+    if (typeof req.body.name === 'string') updates.name = req.body.name;
+    if (typeof req.body.path === 'string') {
+      const resolved = path.resolve(req.body.path.replace(/^~/, os.homedir()));
+      if (!fs.existsSync(resolved)) {
+        return res.status(400).json({ error: `Path does not exist: ${resolved}` });
+      }
+      updates.path = resolved;
+    }
+
+    const updated = store.updateProject(req.params.id, updates);
+    io.emit('projects:updated', store.getProjects());
+    res.json(updated);
+  });
+
+  // Suggest a relocation path for a project whose path is missing.
+  // Looks for a directory with the same basename under common roots.
+  app.get('/api/projects/:id/path-suggestions', async (req, res) => {
+    const project = store.getProject(req.params.id);
+    if (!project) return res.status(404).json({ error: 'project not found' });
+    if (fs.existsSync(project.path)) return res.json({ suggestions: [] });
+
+    const basename = path.basename(project.path);
+    const home = os.homedir();
+    const output = await runCommand('find', [
+      home, '-maxdepth', '4',
+      '-type', 'd',
+      '-name', basename,
+      '-not', '-path', '*/node_modules/*',
+      '-not', '-path', '*/.nvm/*',
+      '-not', '-path', '*/.npm/*',
+      '-not', '-path', '*/.cache/*',
+      '-not', '-path', '*/.Trash/*',
+      '-not', '-path', '*/.git/*',
+    ], 8000);
+
+    const existingPaths = new Set(
+      Object.values(store.data.projects).map(p => p.path).filter(p => p !== project.path),
+    );
+    const suggestions = output
+      .split('\n')
+      .filter(Boolean)
+      .filter(p => !existingPaths.has(p))
+      .slice(0, 10);
+    res.json({ suggestions });
+  });
+
   app.delete('/api/projects/:id', async (req, res) => {
     const project = store.getProject(req.params.id);
     if (!project) return res.status(404).json({ error: 'not found' });
