@@ -23,9 +23,33 @@ export function wireNotifications(io, { store, stateDetector, orchestrator, aiOr
       }
     }
 
-    // Clear the waiting-notified flag only after the session has done real work
-    if (newStatus === 'working') {
-      waitingNotified.delete(sessionId);
+    // Clear the waiting-notified flag only after the session has done real
+    // work — specifically a genuine transition from waiting → working that
+    // sustains long enough to look like a new turn. A brief `working` blip
+    // (e.g. a stray spinner-like character in output) must not clear the
+    // flag, or we'll re-notify for the same idle prompt over and over.
+    const prevStatus = session.status;
+    if (newStatus === 'working' && prevStatus === 'waiting') {
+      // Defer the clear; only commit if still working after a short grace
+      // period. If we bounce back to waiting/active quickly it was noise.
+      const pending = (waitingNotified._pendingClears ||= new Map());
+      const existing = pending.get(sessionId);
+      if (existing) clearTimeout(existing);
+      pending.set(sessionId, setTimeout(() => {
+        pending.delete(sessionId);
+        const s = store.getSession(sessionId);
+        if (s && s.status === 'working') {
+          waitingNotified.delete(sessionId);
+        }
+      }, 1500));
+    } else if (newStatus !== 'working') {
+      // Cancel any pending clear if we left the working state early
+      const pending = waitingNotified._pendingClears;
+      const existing = pending?.get(sessionId);
+      if (existing) {
+        clearTimeout(existing);
+        pending.delete(sessionId);
+      }
     }
 
     const sessionUpdate = { status: newStatus, granularState };

@@ -255,8 +255,19 @@ export function useSocket() {
     socketRef.current?.emit('terminal:resize', { sessionId, cols, rows });
   }, []);
 
+  const restartTerminal = useCallback((sessionId) => {
+    socketRef.current?.emit('terminal:restart', sessionId);
+  }, []);
+
   const dismissNotification = useCallback((id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  const pushNotification = useCallback((notif) => {
+    setNotifications(prev => [
+      ...prev.slice(-10),
+      { ...notif, id: `notif-${Date.now()}-${++_notifIdCounter}`, time: new Date() },
+    ]);
   }, []);
 
   // AI Orchestrator controls
@@ -304,7 +315,9 @@ export function useSocket() {
     detachTerminal,
     sendTerminalInput,
     resizeTerminal,
+    restartTerminal,
     dismissNotification,
+    pushNotification,
     toggleAutoRespond,
     refreshAISummaries,
     toggleCoordination,

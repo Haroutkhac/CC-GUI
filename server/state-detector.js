@@ -5,7 +5,13 @@ import { stripAnsi, extractOSC, STATUS_BUFFER_LIMIT, TITLE_BUSY_PREFIXES, TITLE_
 
 // Spinner chars used by Claude Code (from components/Spinner/utils.ts)
 // macOS: · ✢ ✳ ✶ ✻ ✽  |  Ghostty: · ✢ ✳ ✶ ✻ *  |  reduced-motion: ●
-const SPINNER_PATTERN = /[·✢✳✶✻✽●*]/;
+// NOTE: `*` is NOT included here — it's far too common in normal output
+// (markdown bold, bullet lists, code, etc.) and causes false "working"
+// detections. Those false positives clear the `waitingNotified` flag in
+// notification-wiring and produce duplicate "needs input" notifications
+// for an idle session. The Ghostty case is still covered by OSC title
+// detection (TITLE_BUSY_PREFIXES) below.
+const SPINNER_PATTERN = /[·✢✳✶✻✽●]/;
 const SPINNER_COOLDOWN_MS = 2000;
 
 // Map granular states to backward-compatible status values

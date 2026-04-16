@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 
-export default function NotificationToast({ notifications, onDismiss, onJump }) {
+export default function AlertsSection({ notifications, onDismiss, onJump }) {
+  const recent = notifications.slice(-5).reverse();
+  if (recent.length === 0) return null;
+
   return (
-    <div className="notification-container">
-      {notifications.slice(-5).map(notif => (
-        <NotificationItem
+    <div className="sidebar-alerts">
+      <div className="sidebar-section-title">ALERTS</div>
+      {recent.map(notif => (
+        <AlertItem
           key={notif.id}
           notification={notif}
           onDismiss={() => onDismiss(notif.id)}
@@ -15,7 +19,7 @@ export default function NotificationToast({ notifications, onDismiss, onJump }) 
   );
 }
 
-function NotificationItem({ notification, onDismiss, onJump }) {
+function AlertItem({ notification, onDismiss, onJump }) {
   const [visible, setVisible] = useState(false);
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
@@ -29,7 +33,7 @@ function NotificationItem({ notification, onDismiss, onJump }) {
       fadeTimer = setTimeout(() => {
         if (!dismissed) onDismissRef.current();
       }, 300);
-    }, 5000);
+    }, 8000);
     return () => {
       dismissed = true;
       cancelAnimationFrame(rafId);
@@ -43,12 +47,12 @@ function NotificationItem({ notification, onDismiss, onJump }) {
 
   return (
     <div
-      className={`notification-toast ${typeClass} ${visible ? 'visible' : ''}`}
+      className={`sidebar-alert ${typeClass} ${visible ? 'visible' : ''}`}
       onClick={onJump}
     >
-      <span className="notification-icon">{typeIcon}</span>
-      <span className="notification-message">{notification.message}</span>
-      <button className="notification-dismiss" onClick={(e) => { e.stopPropagation(); onDismiss(); }}>x</button>
+      <span className="sidebar-alert-icon">{typeIcon}</span>
+      <span className="sidebar-alert-msg">{notification.message}</span>
+      <button className="sidebar-alert-dismiss" onClick={(e) => { e.stopPropagation(); onDismiss(); }}>x</button>
     </div>
   );
 }

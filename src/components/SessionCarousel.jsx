@@ -79,7 +79,7 @@ export default function SessionCarousel({
           </div>
         </div>
         <button style={styles.optionsBtn} onClick={() => onShowOptions?.()}>&#x22EF;</button>
-        <button style={styles.closeBtn} onClick={() => onClose?.()}>ESC</button>
+        <button style={styles.closeBtn} onClick={() => onClose?.()} title="Back to main view (Esc)">&#x2190; BACK</button>
       </div>
 
       {/* Session list */}
@@ -223,15 +223,17 @@ const styles = {
     lineHeight: 1,
   },
   closeBtn: {
-    background: 'none',
+    background: '#F8F8F0',
     border: '2px solid #F8F8F0',
-    color: '#F8F8F0',
+    color: '#383838',
     fontFamily: font,
-    fontSize: '9px',
-    padding: '6px 10px',
+    fontSize: '11px',
+    fontWeight: 'bold',
+    padding: '8px 14px',
     cursor: 'pointer',
     flexShrink: 0,
     marginLeft: '12px',
+    letterSpacing: '1px',
   },
   listContainer: {
     flex: 1,

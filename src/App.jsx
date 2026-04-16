@@ -1,13 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import GameCanvas from './components/GameCanvas.jsx';
+import AgentGrid from './components/AgentGrid.jsx';
 import TerminalOverlay from './components/TerminalOverlay.jsx';
 import { CreateProjectDialog, CreateSessionDialog, TableContextMenu, ConfirmDialog } from './components/DialogBox.jsx';
-import NotificationToast from './components/NotificationToast.jsx';
-import NotificationPanel from './components/NotificationPanel.jsx';
+import ActivitySidebar from './components/ActivitySidebar.jsx';
 import HUD from './components/HUD.jsx';
-import StatusDashboard from './components/StatusDashboard.jsx';
 import SessionCarousel from './components/SessionCarousel.jsx';
-import OrchestratorPanel from './components/OrchestratorPanel.jsx';
 import MobileControls from './components/MobileControls.jsx';
 import { useSocket } from './hooks/useSocket.js';
 
@@ -16,8 +13,8 @@ export default function App() {
     socket, connected, projects, sessions, summaries, notifications, orchestratorQueue,
     aiSummaries, aiDiffs, aiBranches, aiConflicts, prStatuses, aiStatus,
     createProject, deleteProject, createSession, quickCreateSession, deleteSession,
-    attachTerminal, detachTerminal, sendTerminalInput, resizeTerminal,
-    dismissNotification, createPR, createAllPRs,
+    attachTerminal, detachTerminal, sendTerminalInput, resizeTerminal, restartTerminal,
+    dismissNotification, pushNotification, createPR,
   } = useSocket();
 
   const [activeTerminal, setActiveTerminal] = useState(null);
@@ -25,101 +22,72 @@ export default function App() {
   const lastTerminalRef = useRef(null);
   const restoredRef = useRef(false);
 
-  // Restore last-open terminal from localStorage once sessions have loaded
+  // Restore last-open terminal & project from localStorage once data loads
   useEffect(() => {
-    if (restoredRef.current || sessions.length === 0) return;
-    restoredRef.current = true;
+    if (restoredRef.current) return;
     try {
-      const savedTerminal = localStorage.getItem('cc-gui:activeTerminal');
       const savedProject = localStorage.getItem('cc-gui:activeProjectId');
+      if (savedProject && projects.find(p => p.id === savedProject)) {
+        setActiveProjectId(savedProject);
+      } else if (projects.length > 0) {
+        setActiveProjectId(projects[0].id);
+      }
+      const savedTerminal = localStorage.getItem('cc-gui:activeTerminal');
       if (savedTerminal && sessions.find(s => s.id === savedTerminal)) {
         setActiveTerminal(savedTerminal);
-        if (savedProject) setActiveProjectId(savedProject);
       }
+      if (projects.length > 0) restoredRef.current = true;
     } catch {}
-  }, [sessions]);
+  }, [sessions, projects]);
 
-  // Persist UI state to localStorage
+  // If active project was deleted, fall back to first available
+  useEffect(() => {
+    if (activeProjectId && !projects.find(p => p.id === activeProjectId)) {
+      setActiveProjectId(projects[0]?.id || null);
+    }
+  }, [projects, activeProjectId]);
+
   useEffect(() => {
     try {
-      if (activeTerminal) {
-        localStorage.setItem('cc-gui:activeTerminal', activeTerminal);
-      } else {
-        localStorage.removeItem('cc-gui:activeTerminal');
-      }
+      if (activeTerminal) localStorage.setItem('cc-gui:activeTerminal', activeTerminal);
+      else localStorage.removeItem('cc-gui:activeTerminal');
     } catch {}
   }, [activeTerminal]);
 
   useEffect(() => {
     try {
-      if (activeProjectId) {
-        localStorage.setItem('cc-gui:activeProjectId', activeProjectId);
-      } else {
-        localStorage.removeItem('cc-gui:activeProjectId');
-      }
+      if (activeProjectId) localStorage.setItem('cc-gui:activeProjectId', activeProjectId);
+      else localStorage.removeItem('cc-gui:activeProjectId');
     } catch {}
   }, [activeProjectId]);
+
   const [dialog, setDialog] = useState(null);
   const [dialogData, setDialogData] = useState(null);
-  const [dashboardOpen, setDashboardOpen] = useState(false);
-  const [orchestratorOpen, setOrchestratorOpen] = useState(false);
   const [carouselProject, setCarouselProject] = useState(null);
-  const [confirmDialog, setConfirmDialog] = useState(null); // { message, onConfirm }
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   // Open terminal for a session
   const openTerminal = useCallback((sessionId) => {
     const session = sessions.find(s => s.id === sessionId);
     if (session) setActiveProjectId(session.projectId);
     setActiveTerminal(sessionId);
-    setDashboardOpen(false);
     setCarouselProject(null);
   }, [sessions]);
 
-  // NPC click -> open terminal directly
-  const handleNPCInteract = useCallback((sessionId) => {
-    openTerminal(sessionId);
-  }, [openTerminal]);
-
-  // X key near NPC -> dismiss with confirm
-  const handleDismissNPC = useCallback((sessionId, name) => {
-    setConfirmDialog({
-      message: `Are you sure you want to release ${name || 'this Pokemon'}? This can't be undone!`,
-      onConfirm: () => { deleteSession(sessionId); setConfirmDialog(null); },
-    });
-  }, [deleteSession]);
-
-  // X key near table -> delete project with confirm
-  const handleDeleteTable = useCallback((projectId, name) => {
-    setConfirmDialog({
-      message: `Delete ${name || 'this table'} and release all its Pokemon? This can't be undone!`,
-      onConfirm: async () => {
-        try { await deleteProject(projectId); } catch (err) { console.error('Failed to delete project:', err); }
-        setConfirmDialog(null);
-      },
-    });
-  }, [deleteProject]);
-
-  // Table click -> open carousel
-  const handleTableInteract = useCallback((projectId) => {
-    const project = projects.find(p => p.id === projectId);
-    if (project) {
-      setCarouselProject(project);
-    }
-  }, [projects]);
-
-  const handleNotificationJump = useCallback((sessionId) => {
-    if (sessionId) openTerminal(sessionId);
-  }, [openTerminal]);
+  const handleOpenGallery = useCallback(() => {
+    const project = projects.find(p => p.id === activeProjectId) || projects[0];
+    if (project) setCarouselProject(project);
+  }, [projects, activeProjectId]);
 
   const [dialogError, setDialogError] = useState(null);
 
   const handleCreateProject = useCallback(async (name, path) => {
     try {
       setDialogError(null);
-      await createProject(name, path);
+      const project = await createProject(name, path);
       setDialog(null);
       setDialogData(null);
+      if (project?.id) setActiveProjectId(project.id);
     } catch (err) {
       console.error('Failed to create project:', err);
       setDialogError(err.message || 'Failed to create project');
@@ -148,92 +116,83 @@ export default function App() {
     }
   }, [deleteProject]);
 
-  // Quick create from carousel
   const handleQuickCreate = useCallback(async (projectId) => {
     try {
       const session = await quickCreateSession(projectId);
       if (session?.id) openTerminal(session.id);
     } catch (err) {
       console.error('Failed to create session:', err);
+      pushNotification({
+        type: 'error',
+        title: 'Could not spawn Pokémon',
+        body: err?.message || 'Session creation failed',
+      });
     }
-  }, [quickCreateSession, openTerminal]);
+  }, [quickCreateSession, openTerminal, pushNotification]);
 
-  // Switch terminal (swipe)
   const handleSwitchSession = useCallback((sessionId) => {
     setActiveTerminal(sessionId);
   }, []);
 
-  // Global keyboard shortcuts (capture phase)
-  // Plain letter keys — no Cmd/Ctrl needed. Ignored when typing in inputs or terminal.
+  // Global keyboard shortcuts. The handler reads from a ref so the listener
+  // only attaches once and avoids re-binding on every state change.
+  const shortcutStateRef = useRef(null);
+  shortcutStateRef.current = {
+    activeTerminal, dialog, carouselProject, confirmDialog,
+    projects, activeProjectId, orchestratorQueue,
+    openTerminal, handleQuickCreate,
+    setActiveTerminal, setCarouselProject, setDialog, setDialogData, setConfirmDialog,
+  };
   useEffect(() => {
     const handleKey = (e) => {
-      // ESC always works
+      const s = shortcutStateRef.current;
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        if (confirmDialog) setConfirmDialog(null);
-        else if (activeTerminal) setActiveTerminal(null);
-        else if (orchestratorOpen) setOrchestratorOpen(false);
-        else if (notificationsOpen) setNotificationsOpen(false);
-        else if (carouselProject) setCarouselProject(null);
-        else if (dashboardOpen) setDashboardOpen(false);
-        else if (dialog) { setDialog(null); setDialogData(null); }
+        if (s.confirmDialog) s.setConfirmDialog(null);
+        else if (s.dialog) { s.setDialog(null); s.setDialogData(null); }
+        else if (s.activeTerminal) s.setActiveTerminal(null);
+        else if (s.carouselProject) s.setCarouselProject(null);
         return;
       }
 
-      // When terminal is active, let all other keys through to xterm
-      if (activeTerminal) return;
+      if (s.activeTerminal) return;
 
-      // Skip shortcuts when focused on an input/textarea
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
 
-      // K toggles command center regardless of other overlays
-      if (e.key === 'k') {
-        e.preventDefault();
-        setOrchestratorOpen(prev => !prev);
-        return;
-      }
-
-      // Block other shortcuts when any overlay is open
-      if (dialog || dashboardOpen || carouselProject || orchestratorOpen) return;
+      if (s.dialog || s.carouselProject) return;
 
       switch (e.key) {
-        case 'n': // New project
+        case 'n':
           e.preventDefault();
-          setDialog('createProject');
+          s.setDialog('createProject');
           break;
-        case 's': // Quick-spawn session in first project
+        case 's':
           e.preventDefault();
-          if (projects.length > 0) handleQuickCreate(projects[0].id);
-          break;
-        case 't': // Team dashboard
-          e.preventDefault();
-          setDashboardOpen(prev => !prev);
+          if (s.activeProjectId) s.handleQuickCreate(s.activeProjectId);
+          else if (s.projects.length > 0) s.handleQuickCreate(s.projects[0].id);
           break;
         default:
-          // 1-9: jump to session by orchestrator rank
           if (e.key >= '1' && e.key <= '9') {
-            const idx = parseInt(e.key) - 1;
-            const actionable = (orchestratorQueue || []).filter(q => q.priority >= 2);
+            const idx = parseInt(e.key, 10) - 1;
+            const actionable = (s.orchestratorQueue || []).filter((q) => q.priority >= 2);
             if (actionable[idx]) {
               e.preventDefault();
-              openTerminal(actionable[idx].sessionId);
+              s.openTerminal(actionable[idx].sessionId);
             }
           }
       }
     };
     window.addEventListener('keydown', handleKey, true);
     return () => window.removeEventListener('keydown', handleKey, true);
-  }, [activeTerminal, dialog, dashboardOpen, orchestratorOpen, notificationsOpen, carouselProject, confirmDialog, projects, orchestratorQueue, openTerminal, handleQuickCreate]);
+  }, []);
 
-  // Track last opened terminal so we can keep it mounted (hidden) when closed
   useEffect(() => {
     if (activeTerminal) lastTerminalRef.current = activeTerminal;
   }, [activeTerminal]);
 
-  // Only keep the terminal mounted if the session still exists
   const lastId = lastTerminalRef.current;
   const terminalSessionId = activeTerminal || (lastId && sessions.find(s => s.id === lastId) ? lastId : null);
   const terminalSession = terminalSessionId ? sessions.find(s => s.id === terminalSessionId) : null;
@@ -241,100 +200,52 @@ export default function App() {
     ? sessions.filter(s => s.projectId === activeProjectId)
     : [];
 
-  const waitingCount = sessions.filter(s => s.status === 'waiting').length;
+  const activeProject = projects.find(p => p.id === activeProjectId) || null;
+  const activeProjectSessions = activeProjectId
+    ? sessions.filter(s => s.projectId === activeProjectId)
+    : [];
 
   return (
     <div className="app">
-      <GameCanvas
-        projects={projects}
-        sessions={sessions}
-        onNPCInteract={handleNPCInteract}
-        onTableInteract={handleTableInteract}
-        onDeleteTable={handleDeleteTable}
-        onDismissNPC={handleDismissNPC}
-        onCreateAtTable={handleQuickCreate}
-        inputPaused={!!activeTerminal || !!dialog || dashboardOpen || orchestratorOpen || notificationsOpen || !!carouselProject || !!confirmDialog}
-      />
-
       <HUD
         projects={projects}
         sessions={sessions}
         connected={connected}
         aiStatus={aiStatus}
         orchestratorQueue={orchestratorQueue}
-        notificationCount={sessions.filter(s => s.status === 'waiting').length + notifications.length}
+        activeProjectId={activeProjectId}
+        onSelectProject={setActiveProjectId}
+        onOpenGallery={handleOpenGallery}
         onCreateProject={() => setDialog('createProject')}
-        onOpenOrchestrator={() => setOrchestratorOpen(true)}
-        onToggleNotifications={() => setNotificationsOpen(prev => !prev)}
-        notificationsOpen={notificationsOpen}
       />
 
-      {notificationsOpen && (
-        <NotificationPanel
-          sessions={sessions}
-          projects={projects}
+      <main className="agent-main">
+        <AgentGrid
+          project={activeProject}
+          sessions={activeProjectSessions}
+          orchestratorQueue={orchestratorQueue}
           aiSummaries={aiSummaries}
-          notifications={notifications}
-          onSelectSession={(sessionId) => {
-            setNotificationsOpen(false);
-            openTerminal(sessionId);
-          }}
-          onClose={() => setNotificationsOpen(false)}
+          aiBranches={aiBranches}
+          aiDiffs={aiDiffs}
+          aiConflicts={aiConflicts}
+          prStatuses={prStatuses}
+          onSelectSession={openTerminal}
+          onCreatePR={createPR}
         />
-      )}
+      </main>
+
+      <ActivitySidebar
+        sessions={sessions}
+        projects={projects}
+        notifications={notifications}
+        orchestratorQueue={orchestratorQueue}
+        aiSummaries={aiSummaries}
+        onSelectSession={openTerminal}
+        onDismissNotification={dismissNotification}
+      />
 
       <MobileControls />
 
-      {/* FAB: Team Status button */}
-      <button
-        className="fab-team"
-        onClick={() => setDashboardOpen(true)}
-      >
-        {waitingCount > 0 && <span className="fab-badge">{waitingCount}</span>}
-        TEAM <span className="fab-key-hint">[T]</span>
-      </button>
-
-      {/* Orchestrator Panel */}
-      {orchestratorOpen && (
-        <OrchestratorPanel
-          queue={orchestratorQueue}
-          sessions={sessions}
-          projects={projects}
-          aiSummaries={aiSummaries}
-          aiConflicts={aiConflicts}
-          aiDiffs={aiDiffs}
-          aiBranches={aiBranches}
-          prStatuses={prStatuses}
-          onCreatePR={createPR}
-          onCreateAllPRs={createAllPRs}
-          onSelectSession={(sessionId) => {
-            setOrchestratorOpen(false);
-            openTerminal(sessionId);
-          }}
-          onClose={() => setOrchestratorOpen(false)}
-        />
-      )}
-
-      {/* Status Dashboard */}
-      {dashboardOpen && (
-        <StatusDashboard
-          projects={projects}
-          sessions={sessions}
-          summaries={summaries}
-          aiSummaries={aiSummaries}
-          aiStatus={aiStatus}
-          aiDiffs={aiDiffs}
-          aiBranches={aiBranches}
-          aiConflicts={aiConflicts}
-          prStatuses={prStatuses}
-          onCreatePR={createPR}
-          open={dashboardOpen}
-          onSelectSession={openTerminal}
-          onClose={() => setDashboardOpen(false)}
-        />
-      )}
-
-      {/* Session Carousel */}
       {carouselProject && !activeTerminal && (
         <SessionCarousel
           project={carouselProject}
@@ -352,7 +263,6 @@ export default function App() {
         />
       )}
 
-      {/* Terminal overlay — kept mounted to preserve chat history */}
       {terminalSessionId && socket && (
         <TerminalOverlay
           sessionId={terminalSessionId}
@@ -370,12 +280,12 @@ export default function App() {
           resizeTerminal={resizeTerminal}
           attachTerminal={attachTerminal}
           detachTerminal={detachTerminal}
+          restartTerminal={restartTerminal}
           projectSessions={projectSessionsForSwipe}
           onSwitchSession={handleSwitchSession}
         />
       )}
 
-      {/* Dialogs */}
       {dialog === 'createProject' && (
         <CreateProjectDialog
           onSubmit={handleCreateProject}
@@ -406,12 +316,6 @@ export default function App() {
           }}
         />
       )}
-
-      <NotificationToast
-        notifications={notifications}
-        onDismiss={dismissNotification}
-        onJump={handleNotificationJump}
-      />
 
       {confirmDialog && (
         <ConfirmDialog

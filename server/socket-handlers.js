@@ -161,6 +161,32 @@ export function registerSocketHandlers(io, { store, terminalManager, stateDetect
       socket.leave(`session:${sessionId}`);
     });
 
+    socket.on('terminal:restart', async (sessionId) => {
+      const session = store.getSession(sessionId);
+      if (!session) {
+        socket.emit('terminal:error', { sessionId, error: 'Session not found' });
+        return;
+      }
+
+      // Kill existing PTY if running
+      const existing = terminalManager.get(sessionId);
+      if (existing) {
+        try { existing.pty.kill(); } catch (_) {}
+        terminalManager.terminals.delete(sessionId);
+      }
+
+      // Clear cached scrollback so the terminal starts fresh
+      terminalManager.deadScrollback.delete(sessionId);
+      await terminalManager._deleteScrollbackFromDisk(sessionId);
+
+      // Reset session status so terminal:attach will spawn a new process
+      store.updateSession(sessionId, { status: 'idle', exitCode: undefined });
+      io.emit('sessions:updated', store.getSessions());
+
+      // Notify all clients in this session room to clear their terminals
+      io.to(`session:${sessionId}`).emit('terminal:restarted', { sessionId });
+    });
+
     socket.on('terminal:input', ({ sessionId, data }) => {
       if (typeof data !== 'string') return;
       try {

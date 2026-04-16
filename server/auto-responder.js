@@ -5,9 +5,9 @@ import './types.js';
 const AUTO_RESPOND_COOLDOWN_MS = 3000;
 
 export class AutoResponder {
-  constructor({ terminalManager }) {
+  constructor({ terminalManager, autoRespondEnabled = true }) {
     this.terminalManager = terminalManager;
-    this.autoRespondEnabled = true;
+    this.autoRespondEnabled = autoRespondEnabled;
     this.autoResponses = [];
     this.lastAutoRespondAt = {};
     this.onAutoRespond = null;
