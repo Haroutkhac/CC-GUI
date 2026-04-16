@@ -3,7 +3,7 @@ import { capitalize } from '../../shared/constants.js';
 
 export default function HUD({
   projects, sessions, connected, aiStatus, orchestratorQueue,
-  activeProjectId, onSelectProject, onOpenGallery,
+  activeProjectId, showGrid, onSelectProject, onOpenGallery,
   onCreateProject,
 }) {
   const activeCount = sessions.filter(s => s.status === 'active' || s.status === 'working').length;
@@ -66,11 +66,9 @@ export default function HUD({
           {connected ? 'ONLINE' : 'OFFLINE'}
         </span>
         <div className="pkmn-hud-btns">
-          {activeProjectId && (
-            <button className="pkmn-hud-btn" onClick={onOpenGallery}>
-              GALLERY
-            </button>
-          )}
+          <button className="pkmn-hud-btn" onClick={onOpenGallery}>
+            {showGrid ? 'MAP' : 'GALLERY'}
+          </button>
           <button className="pkmn-hud-btn" onClick={onCreateProject}>
             + TABLE <kbd className="hud-kbd">N</kbd>
           </button>

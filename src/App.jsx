@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import GameCanvas from './components/GameCanvas.jsx';
 import AgentGrid from './components/AgentGrid.jsx';
 import TerminalOverlay from './components/TerminalOverlay.jsx';
 import { CreateProjectDialog, CreateSessionDialog, TableContextMenu, ConfirmDialog } from './components/DialogBox.jsx';
@@ -12,7 +13,7 @@ export default function App() {
   const {
     socket, connected, projects, sessions, summaries, notifications, orchestratorQueue,
     aiSummaries, aiDiffs, aiBranches, aiConflicts, prStatuses, aiStatus,
-    createProject, deleteProject, createSession, quickCreateSession, deleteSession,
+    createProject, deleteProject, createSession, quickCreateSession, forkSession, deleteSession,
     attachTerminal, detachTerminal, sendTerminalInput, resizeTerminal, restartTerminal,
     dismissNotification, pushNotification, createPR,
   } = useSocket();
@@ -65,6 +66,7 @@ export default function App() {
   const [dialogData, setDialogData] = useState(null);
   const [carouselProject, setCarouselProject] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [showGrid, setShowGrid] = useState(false);
 
   // Open terminal for a session
   const openTerminal = useCallback((sessionId) => {
@@ -75,9 +77,35 @@ export default function App() {
   }, [sessions]);
 
   const handleOpenGallery = useCallback(() => {
-    const project = projects.find(p => p.id === activeProjectId) || projects[0];
+    setShowGrid(v => !v);
+  }, []);
+
+  // GameCanvas callbacks
+  const handleNPCInteract = useCallback((sessionId) => {
+    openTerminal(sessionId);
+  }, [openTerminal]);
+
+  const handleDismissNPC = useCallback((sessionId, name) => {
+    setConfirmDialog({
+      message: `Are you sure you want to release ${name || 'this Pokemon'}? This can't be undone!`,
+      onConfirm: () => { deleteSession(sessionId); setConfirmDialog(null); },
+    });
+  }, [deleteSession]);
+
+  const handleDeleteTable = useCallback((projectId, name) => {
+    setConfirmDialog({
+      message: `Delete ${name || 'this table'} and release all its Pokemon? This can't be undone!`,
+      onConfirm: async () => {
+        try { await deleteProject(projectId); } catch (err) { console.error('Failed to delete project:', err); }
+        setConfirmDialog(null);
+      },
+    });
+  }, [deleteProject]);
+
+  const handleTableInteract = useCallback((projectId) => {
+    const project = projects.find(p => p.id === projectId);
     if (project) setCarouselProject(project);
-  }, [projects, activeProjectId]);
+  }, [projects]);
 
   const [dialogError, setDialogError] = useState(null);
 
@@ -138,10 +166,10 @@ export default function App() {
   // only attaches once and avoids re-binding on every state change.
   const shortcutStateRef = useRef(null);
   shortcutStateRef.current = {
-    activeTerminal, dialog, carouselProject, confirmDialog,
+    activeTerminal, dialog, carouselProject, confirmDialog, showGrid,
     projects, activeProjectId, orchestratorQueue,
     openTerminal, handleQuickCreate,
-    setActiveTerminal, setCarouselProject, setDialog, setDialogData, setConfirmDialog,
+    setActiveTerminal, setCarouselProject, setDialog, setDialogData, setConfirmDialog, setShowGrid,
   };
   useEffect(() => {
     const handleKey = (e) => {
@@ -153,6 +181,7 @@ export default function App() {
         else if (s.dialog) { s.setDialog(null); s.setDialogData(null); }
         else if (s.activeTerminal) s.setActiveTerminal(null);
         else if (s.carouselProject) s.setCarouselProject(null);
+        else if (s.showGrid) s.setShowGrid(false);
         return;
       }
 
@@ -214,25 +243,39 @@ export default function App() {
         aiStatus={aiStatus}
         orchestratorQueue={orchestratorQueue}
         activeProjectId={activeProjectId}
+        showGrid={showGrid}
         onSelectProject={setActiveProjectId}
         onOpenGallery={handleOpenGallery}
         onCreateProject={() => setDialog('createProject')}
       />
 
-      <main className="agent-main">
-        <AgentGrid
-          project={activeProject}
-          sessions={activeProjectSessions}
-          orchestratorQueue={orchestratorQueue}
-          aiSummaries={aiSummaries}
-          aiBranches={aiBranches}
-          aiDiffs={aiDiffs}
-          aiConflicts={aiConflicts}
-          prStatuses={prStatuses}
-          onSelectSession={openTerminal}
-          onCreatePR={createPR}
-        />
-      </main>
+      <GameCanvas
+        projects={projects}
+        sessions={sessions}
+        onNPCInteract={handleNPCInteract}
+        onTableInteract={handleTableInteract}
+        onDeleteTable={handleDeleteTable}
+        onDismissNPC={handleDismissNPC}
+        onCreateAtTable={handleQuickCreate}
+        inputPaused={!!activeTerminal || !!dialog || !!carouselProject || !!confirmDialog || showGrid}
+      />
+
+      {showGrid && (
+        <main className="agent-main">
+          <AgentGrid
+            project={activeProject}
+            sessions={activeProjectSessions}
+            orchestratorQueue={orchestratorQueue}
+            aiSummaries={aiSummaries}
+            aiBranches={aiBranches}
+            aiDiffs={aiDiffs}
+            aiConflicts={aiConflicts}
+            prStatuses={prStatuses}
+            onSelectSession={openTerminal}
+            onCreatePR={createPR}
+          />
+        </main>
+      )}
 
       <ActivitySidebar
         sessions={sessions}
@@ -254,6 +297,7 @@ export default function App() {
           onSelectSession={openTerminal}
           onCreateSession={() => handleQuickCreate(carouselProject.id)}
           onDeleteSession={deleteSession}
+          onForkSession={forkSession}
           onShowOptions={() => {
             setDialog('tableMenu');
             setDialogData(carouselProject);
