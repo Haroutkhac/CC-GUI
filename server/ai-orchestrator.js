@@ -13,8 +13,13 @@ export class AIOrchestrator {
     this.store = store;
     this.safeModeConfig = safeModeConfig;
 
-    // Compose sub-modules
-    this.autoResponder = new AutoResponder({ terminalManager });
+    // Compose sub-modules.
+    // Safe mode defaults auto-respond to OFF — protected agents (Codex/OpenAI) require
+    // manual approval when safe mode is on. Users can still toggle via the UI.
+    this.autoResponder = new AutoResponder({
+      terminalManager,
+      autoRespondEnabled: !safeModeConfig.safeMode,
+    });
     this.summarizer = new Summarizer();
     this.conflictDetector = new ConflictDetector({ gitMonitor, store });
     this.coordinator = new Coordinator({ terminalManager, store });

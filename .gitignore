@@ -4,5 +4,6 @@ dist/
 .env.*
 .DS_Store
 data/store.json
+data/*.bak
 data/scrollback/
 .gstack/
