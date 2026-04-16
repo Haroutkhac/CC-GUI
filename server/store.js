@@ -67,13 +67,33 @@ export class Store {
   }
 
   /** @returns {Project[]} */
-  getProjects() { return Object.values(this.data.projects); }
+  getProjects() {
+    return Object.values(this.data.projects).map(p => ({
+      ...p,
+      pathMissing: !fs.existsSync(p.path),
+    }));
+  }
 
   /**
    * @param {string} id
    * @returns {Project|null}
    */
   getProject(id) { return this.data.projects[id] || null; }
+
+  /**
+   * @param {string} id
+   * @param {Partial<Project>} updates
+   * @returns {Project|null}
+   */
+  updateProject(id, updates) {
+    if (!this.data.projects[id]) return null;
+    const allowed = {};
+    if (typeof updates.name === 'string' && updates.name.trim()) allowed.name = updates.name.trim();
+    if (typeof updates.path === 'string' && updates.path.trim()) allowed.path = updates.path.trim();
+    Object.assign(this.data.projects[id], allowed);
+    this.save();
+    return this.data.projects[id];
+  }
 
   /**
    * @param {string} name

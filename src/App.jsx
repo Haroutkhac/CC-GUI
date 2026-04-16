@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import GameCanvas from './components/GameCanvas.jsx';
 import AgentGrid from './components/AgentGrid.jsx';
 import TerminalOverlay from './components/TerminalOverlay.jsx';
-import { CreateProjectDialog, CreateSessionDialog, TableContextMenu, ConfirmDialog } from './components/DialogBox.jsx';
+import { CreateProjectDialog, CreateSessionDialog, TableContextMenu, ConfirmDialog, RelocateProjectDialog } from './components/DialogBox.jsx';
 import ActivitySidebar from './components/ActivitySidebar.jsx';
 import HUD from './components/HUD.jsx';
 import SessionCarousel from './components/SessionCarousel.jsx';
@@ -13,7 +13,7 @@ export default function App() {
   const {
     socket, connected, projects, sessions, summaries, notifications, orchestratorQueue,
     aiSummaries, aiDiffs, aiBranches, aiConflicts, prStatuses, aiStatus,
-    createProject, deleteProject, createSession, quickCreateSession, forkSession, deleteSession,
+    createProject, deleteProject, updateProject, createSession, quickCreateSession, forkSession, deleteSession,
     attachTerminal, detachTerminal, sendTerminalInput, resizeTerminal, restartTerminal,
     dismissNotification, pushNotification, createPR,
   } = useSocket();
@@ -145,6 +145,12 @@ export default function App() {
   }, [deleteProject]);
 
   const handleQuickCreate = useCallback(async (projectId) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project?.pathMissing) {
+      setDialog('relocate');
+      setDialogData(project);
+      return;
+    }
     try {
       const session = await quickCreateSession(projectId);
       if (session?.id) openTerminal(session.id);
@@ -156,7 +162,21 @@ export default function App() {
         body: err?.message || 'Session creation failed',
       });
     }
-  }, [quickCreateSession, openTerminal, pushNotification]);
+  }, [projects, quickCreateSession, openTerminal, pushNotification]);
+
+  const handleRelocateProject = useCallback(async (projectId, newPath) => {
+    try {
+      await updateProject(projectId, { path: newPath });
+      setDialog(null);
+      setDialogData(null);
+    } catch (err) {
+      pushNotification({
+        type: 'error',
+        title: 'Could not relocate table',
+        body: err?.message || 'Update failed',
+      });
+    }
+  }, [updateProject, pushNotification]);
 
   const handleSwitchSession = useCallback((sessionId) => {
     setActiveTerminal(sessionId);
@@ -242,9 +262,7 @@ export default function App() {
         connected={connected}
         aiStatus={aiStatus}
         orchestratorQueue={orchestratorQueue}
-        activeProjectId={activeProjectId}
         showGrid={showGrid}
-        onSelectProject={setActiveProjectId}
         onOpenGallery={handleOpenGallery}
         onCreateProject={() => setDialog('createProject')}
       />
@@ -358,6 +376,14 @@ export default function App() {
           onConfirm={(message, action) => {
             setConfirmDialog({ message, onConfirm: () => { action(); setConfirmDialog(null); } });
           }}
+        />
+      )}
+
+      {dialog === 'relocate' && dialogData && (
+        <RelocateProjectDialog
+          project={dialogData}
+          onSubmit={handleRelocateProject}
+          onCancel={() => { setDialog(null); setDialogData(null); }}
         />
       )}
 

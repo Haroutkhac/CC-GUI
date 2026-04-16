@@ -338,3 +338,79 @@ export function TableContextMenu({ project, sessions, onCreateSession, onDeleteP
     </div>
   );
 }
+
+export function RelocateProjectDialog({ project, onSubmit, onCancel }) {
+  const [path, setPath] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    authFetch(`/api/projects/${project.id}/path-suggestions`)
+      .then(r => r.json())
+      .then(data => { setSuggestions(data.suggestions || []); setLoading(false); })
+      .catch(() => { setSuggestions([]); setLoading(false); });
+  }, [project.id]);
+
+  const submit = (nextPath) => {
+    if (!nextPath) { setError('Path is required'); return; }
+    setError('');
+    onSubmit(project.id, nextPath);
+  };
+
+  return (
+    <div className="pkmn-overlay" onClick={onCancel}>
+      <div className="pkmn-dialog" onClick={e => e.stopPropagation()}>
+        <div className="pkmn-dialog-inner">
+          <div className="pkmn-dialog-title">PATH MOVED</div>
+          <div className="pkmn-dialog-sub">Table: {project.name}</div>
+          <div style={{ fontSize: '7px', color: '#C04040', margin: '8px 0', lineHeight: '1.8' }}>
+            Old path not found:
+            <br />
+            {project.path}
+          </div>
+
+          {loading ? (
+            <div className="discover-loading">Searching for {project.name}...</div>
+          ) : suggestions.length > 0 ? (
+            <div className="discover-list" style={{ maxHeight: '160px' }}>
+              <div className="discover-section">
+                <div className="discover-section-title">FOUND</div>
+                {suggestions.map(s => (
+                  <button key={s} className="discover-item" onClick={() => submit(s)}>
+                    <span className="discover-icon">DIR</span>
+                    <span className="discover-info">
+                      <span className="discover-detail">{s}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <form onSubmit={e => { e.preventDefault(); submit(path); }}>
+            <div className="pkmn-field">
+              <label>NEW PATH</label>
+              <input
+                type="text"
+                value={path}
+                onChange={e => { setPath(e.target.value); setError(''); }}
+                placeholder="/Users/you/new-location"
+                autoFocus
+              />
+            </div>
+            <ValidationError message={error} />
+            <div className="pkmn-menu-list">
+              <button type="submit" className="pkmn-menu-item">
+                <MenuArrow /> RELOCATE
+              </button>
+              <button type="button" className="pkmn-menu-item" onClick={onCancel}>
+                <MenuArrow /> CANCEL
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}

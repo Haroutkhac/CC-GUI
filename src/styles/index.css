@@ -486,10 +486,13 @@ html, body, #root {
 .sidebar-alert.warning { border-color: #C08800; }
 .sidebar-alert.success { border-color: #2ECC71; }
 .sidebar-alert.info { border-color: #3060A0; }
+.sidebar-alert.error { border-color: #C04040; }
 .sidebar-alert-icon { font-size: 11px; font-weight: bold; flex-shrink: 0; }
 .sidebar-alert.warning .sidebar-alert-icon { color: #C08800; }
 .sidebar-alert.success .sidebar-alert-icon { color: #2ECC71; }
 .sidebar-alert.info .sidebar-alert-icon { color: #3060A0; }
+.sidebar-alert.error .sidebar-alert-icon { color: #C04040; }
+.sidebar-alert-title { color: #383838; margin-right: 2px; }
 .sidebar-alert-msg {
   flex: 1; min-width: 0;
   font-family: 'Courier New', monospace;
