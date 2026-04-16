@@ -1,5 +1,5 @@
 /* === Pokemon-style CC Gym === */
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+/* Font is loaded non-blockingly from index.html. */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
