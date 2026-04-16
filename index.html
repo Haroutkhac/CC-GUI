@@ -5,18 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>CC Gym</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><defs><clipPath id='c'><circle cx='8' cy='8' r='7'/></clipPath></defs><circle cx='8' cy='8' r='7' fill='%23E53935' stroke='%23222' stroke-width='1'/><rect x='0' y='8' width='16' height='8' fill='%23F8F8F0' clip-path='url(%23c)'/><rect x='1' y='7.2' width='14' height='1.6' fill='%23222'/><circle cx='8' cy='8' r='2.5' fill='%23F8F8F0' stroke='%23222' stroke-width='1.5'/><circle cx='8' cy='8' r='1' fill='%23222'/></svg>" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
       body { font-family: 'Press Start 2P', monospace; }
     </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
+    </noscript>
   </head>
   <body>
-    <!-- React Scan: detects unnecessary re-renders (dev only) -->
-    <script src="https://unpkg.com/react-scan/dist/auto.global.js"></script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
