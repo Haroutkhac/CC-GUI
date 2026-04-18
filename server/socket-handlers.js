@@ -97,7 +97,6 @@ export function registerSocketHandlers(io, { store, terminalManager, stateDetect
                 projectName: proj?.name,
                 projectId: sess?.projectId,
               };
-              orchestrator.ingest(sessionId, data, meta);
               aiOrchestrator.ingest(sessionId, data, meta);
             },
             onExit: (code) => {
@@ -116,7 +115,7 @@ export function registerSocketHandlers(io, { store, terminalManager, stateDetect
                 projectName: store.getProject(sess.projectId)?.name,
                 projectId: sess.projectId,
               };
-              orchestrator.onStatusChange(sessionId, exitStatus, meta);
+              orchestrator.onExitStatus(sessionId, exitStatus, meta);
               aiOrchestrator.onStatusChange(sessionId, exitStatus, meta);
 
               if (exitStatus === 'completed') {

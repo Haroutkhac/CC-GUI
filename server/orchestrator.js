@@ -1,7 +1,8 @@
-// Orchestrator: monitors all terminal sessions and determines what action is needed
+// Orchestrator: maps StateDetector granular states to priority levels.
+// Single source of truth: StateDetector detects state, Orchestrator ranks priority.
+// No direct PTY parsing — all state comes via onStateChange() callback.
 
 import './types.js';
-import { stripAnsi, ORCHESTRATOR_BUFFER_LIMIT } from './utils.js';
 
 export const PRIORITY = {
   CRITICAL: 4,  // Permission prompts, Y/n confirmations
@@ -19,43 +20,34 @@ const PRIORITY_LABELS = {
   [PRIORITY.NONE]: 'IDLE',
 };
 
-const PRIORITY_ACTIONS = {
-  [PRIORITY.CRITICAL]: 'Respond now',
-  [PRIORITY.HIGH]: 'Needs attention',
-  [PRIORITY.MEDIUM]: 'Review when ready',
-  [PRIORITY.LOW]: 'No action needed',
-  [PRIORITY.NONE]: 'Idle',
-};
-
 export class Orchestrator {
   constructor(options = {}) {
     this.stateDetector = options.stateDetector || null;
-    this.states = new Map();    // sessionId -> analysis state
-    this.buffers = new Map();   // sessionId -> raw output buffer
+    this.states = new Map();    // sessionId -> OrchestratorEntry
     this.onChange = null;        // callback when priorities change
     this._debounceTimer = null;
   }
 
   /**
-   * Feed terminal output into the orchestrator.
+   * Called when StateDetector emits a state change.
+   * Maps the granular state + detail to a priority level.
    * @param {string} sessionId
-   * @param {string} rawData
-   * @param {SessionMeta} meta
+   * @param {string} granularState
+   * @param {Object|null} detail
    */
-  ingest(sessionId, rawData, meta) {
-    let buf = (this.buffers.get(sessionId) || '') + rawData;
-    if (buf.length > ORCHESTRATOR_BUFFER_LIMIT) buf = buf.slice(-ORCHESTRATOR_BUFFER_LIMIT);
-    this.buffers.set(sessionId, buf);
-
-    const clean = stripAnsi(buf);
-    const tail = clean.slice(-600);
-
+  onStateChange(sessionId, granularState, detail) {
     const prev = this.states.get(sessionId);
-    const analysis = this._analyze(sessionId, tail, meta);
+    const analysis = this._mapPriority(granularState, detail);
     analysis.sessionId = sessionId;
-    analysis.meta = meta;
 
-    // Keep original detectedAt if priority hasn't changed
+    // Get context from StateDetector's cached clean tail
+    if (this.stateDetector) {
+      analysis.context = (this.stateDetector.getCleanTail(sessionId) || '').slice(-300);
+    } else {
+      analysis.context = '';
+    }
+
+    // Keep original detectedAt if priority+reason unchanged
     if (prev && prev.priority === analysis.priority && prev.reason === analysis.reason) {
       analysis.detectedAt = prev.detectedAt;
     } else {
@@ -72,160 +64,143 @@ export class Orchestrator {
   }
 
   /**
-   * Analyze the cleaned terminal output and determine priority/action.
-   * @param {string} sessionId
-   * @param {string} tail
-   * @param {SessionMeta} meta
-   * @returns {Partial<OrchestratorEntry>} Analysis result (sessionId, meta, detectedAt added by ingest)
+   * Pure mapping from (granularState, detail) to priority entry.
+   * No regex, no buffer reading — just state-to-priority translation.
+   * @param {string} granularState
+   * @param {Object|null} detail
+   * @returns {Partial<OrchestratorEntry>}
    */
-  _analyze(sessionId, tail, meta) {
-    const lastLines = tail.split('\n').filter(l => l.trim()).slice(-8);
-    const lastLine = (lastLines[lastLines.length - 1] || '').trim();
-    const lastTwoLines = lastLines.slice(-2).join('\n');
-    const context = lastLines.slice(-3).join('\n').slice(0, 300);
-
-    // Check if output ends with active work indicators (used as a guard below)
-    const WORK_PATTERN = /(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i;
-    const endsWithWork = WORK_PATTERN.test(lastTwoLines);
-
-    // --- CRITICAL: Permission / confirmation prompts ---
-    if (/\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail)) {
-      const promptLine = lastLines.find(l => /Y\/n|y\/N/i.test(l)) || lastLine;
+  _mapPriority(granularState, detail) {
+    // --- CRITICAL: Y/n confirmation prompts ---
+    if (granularState === 'waiting' && detail?.waitingReason === 'yn_prompt') {
       return {
         priority: PRIORITY.CRITICAL,
         label: PRIORITY_LABELS[PRIORITY.CRITICAL],
         reason: 'Confirmation needed',
         action: 'Respond Y or N',
         actionHint: 'Y/n',
-        context: promptLine.slice(0, 200),
       };
     }
 
-    if (/Do you want to proceed|Allow .* to |Approve.*Deny|Would you like to/i.test(lastTwoLines)) {
-      const promptLine = lastLines.find(l => /proceed|Allow|Approve|Deny|Would you like/i.test(l)) || lastLine;
+    // --- CRITICAL: Permission/approval prompts ---
+    if (granularState === 'waiting' && detail?.waitingReason === 'permission_prompt') {
       return {
         priority: PRIORITY.CRITICAL,
         label: PRIORITY_LABELS[PRIORITY.CRITICAL],
         reason: 'Permission request',
         action: 'Approve or deny',
         actionHint: 'approve',
-        context: promptLine.slice(0, 200),
       };
     }
 
-    // --- HIGH: Waiting for user input (bare prompt character on its own line at the end) ---
-    if (/^\s*>\s*$/.test(lastLine) || /^\s*❯\s*$/.test(lastLine)) {
+    // --- HIGH: Error states ---
+    if (granularState === 'error') {
+      const errorReasons = {
+        rate_limit: 'Rate limited',
+        billing_error: 'Billing error',
+        authentication_failed: 'Auth failed',
+        server_error: 'Server error',
+        max_output_tokens: 'Max output tokens',
+        error_max_turns: 'Max turns reached',
+        error_max_budget_usd: 'Budget exceeded',
+        error_during_execution: 'Execution error',
+        error_max_structured_output_retries: 'Max retries exceeded',
+      };
+      return {
+        priority: PRIORITY.HIGH,
+        label: PRIORITY_LABELS[PRIORITY.HIGH],
+        reason: errorReasons[detail?.errorType] || 'Error',
+        action: 'Investigate error',
+        actionHint: 'error',
+      };
+    }
+
+    // --- HIGH: Bare input prompt (>, ❯, ?) ---
+    if (granularState === 'waiting' && detail?.waitingReason === 'input_prompt') {
       return {
         priority: PRIORITY.HIGH,
         label: PRIORITY_LABELS[PRIORITY.HIGH],
         reason: 'Waiting for input',
         action: 'Type your next prompt',
         actionHint: 'input',
-        context,
       };
     }
 
-    // --- HIGH: Error detected (only on the last 2 lines, and only if not still working) ---
-    if (!endsWithWork) {
-      const errorMatch = lastTwoLines.match(/(Error|Failed|ENOENT|EACCES|Permission denied|Command failed|panic|FATAL)[:\s](.{0,100})/i);
-      if (errorMatch) {
-        return {
-          priority: PRIORITY.HIGH,
-          label: PRIORITY_LABELS[PRIORITY.HIGH],
-          reason: 'Error detected',
-          action: 'Investigate error',
-          actionHint: 'error',
-          context: errorMatch[0].slice(0, 200),
-        };
-      }
-    }
-
-    // --- MEDIUM: Task completed (only if completion signal is on the last 2 lines and not still working) ---
-    if (!endsWithWork && /✓|✔|Done[.!]|Successfully|Completed|finished/i.test(lastTwoLines)) {
+    // --- MEDIUM: Task completed (PTY detected or transcript result.success) ---
+    if (granularState === 'waiting' && detail?.waitingReason === 'completed') {
       return {
         priority: PRIORITY.MEDIUM,
         label: PRIORITY_LABELS[PRIORITY.MEDIUM],
         reason: 'Task completed',
         action: 'Review output',
         actionHint: 'review',
-        context,
       };
     }
 
-    // --- LOW: Actively working — use StateDetector for reliable detection ---
-    if (this.stateDetector) {
-      const granularState = this.stateDetector.getGranularState(sessionId);
-      const detail = this.stateDetector.getDetail(sessionId);
+    // --- MEDIUM: Requires action from transcript ---
+    if (granularState === 'waiting' && detail?.waitingReason === 'requires_action') {
+      return {
+        priority: PRIORITY.MEDIUM,
+        label: PRIORITY_LABELS[PRIORITY.MEDIUM],
+        reason: 'Action required',
+        action: 'Review and respond',
+        actionHint: 'review',
+      };
+    }
 
-      // Error states detected from transcript (rate limit, billing, auth, max turns, etc.)
-      if (granularState === 'error') {
-        const errorReasons = {
-          rate_limit: 'Rate limited',
-          billing_error: 'Billing error',
-          authentication_failed: 'Auth failed',
-          server_error: 'Server error',
-          max_output_tokens: 'Max output tokens',
-          error_max_turns: 'Max turns reached',
-          error_max_budget_usd: 'Budget exceeded',
-          error_during_execution: 'Execution error',
-          error_max_structured_output_retries: 'Max retries exceeded',
-        };
-        return {
-          priority: PRIORITY.HIGH,
-          label: PRIORITY_LABELS[PRIORITY.HIGH],
-          reason: errorReasons[detail?.errorType] || 'Error',
-          action: 'Investigate error',
-          actionHint: 'error',
-          context: detail?.errors?.join('; ') || context,
-        };
-      }
+    // --- MEDIUM: End of turn (finished responding) ---
+    if (granularState === 'waiting' && detail?.waitingReason === 'end_turn') {
+      return {
+        priority: PRIORITY.MEDIUM,
+        label: PRIORITY_LABELS[PRIORITY.MEDIUM],
+        reason: 'Turn completed',
+        action: 'Review when ready',
+        actionHint: 'review',
+      };
+    }
 
-      // Active work states
-      if (['thinking', 'tool_running', 'responding', 'compacting', 'api_retry', 'working'].includes(granularState)) {
-        let reason;
-        switch (granularState) {
-          case 'thinking':
-            reason = 'Thinking';
-            break;
-          case 'tool_running':
-            reason = detail?.toolName ? `Running ${detail.toolName}` : 'Running tool';
-            break;
-          case 'responding':
-            reason = 'Responding';
-            break;
-          case 'compacting':
-            reason = 'Compacting context';
-            break;
-          case 'api_retry':
-            reason = detail?.retryAttempt
-              ? `Retrying (${detail.retryAttempt}/${detail.retryMax || '?'})`
-              : 'Retrying API call';
-            break;
-          default:
-            reason = 'Working';
-        }
-        return {
-          priority: PRIORITY.LOW,
-          label: PRIORITY_LABELS[PRIORITY.LOW],
-          reason,
-          action: 'No action needed',
-          actionHint: 'working',
-          context: detail?.toolInput || context,
-        };
+    // --- MEDIUM: Generic waiting (no specific reason) ---
+    if (granularState === 'waiting') {
+      return {
+        priority: PRIORITY.MEDIUM,
+        label: PRIORITY_LABELS[PRIORITY.MEDIUM],
+        reason: 'Waiting',
+        action: 'Review when ready',
+        actionHint: 'review',
+      };
+    }
+
+    // --- LOW: Actively working ---
+    if (['thinking', 'tool_running', 'responding', 'compacting', 'api_retry', 'working'].includes(granularState)) {
+      let reason;
+      switch (granularState) {
+        case 'thinking':
+          reason = 'Thinking';
+          break;
+        case 'tool_running':
+          reason = detail?.toolName ? `Running ${detail.toolName}` : 'Running tool';
+          break;
+        case 'responding':
+          reason = 'Responding';
+          break;
+        case 'compacting':
+          reason = 'Compacting context';
+          break;
+        case 'api_retry':
+          reason = detail?.retryAttempt
+            ? `Retrying (${detail.retryAttempt}/${detail.retryMax || '?'})`
+            : 'Retrying API call';
+          break;
+        default:
+          reason = 'Working';
       }
-    } else {
-      // Fallback: keyword matching (when no StateDetector is available)
-      if (/(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i.test(tail.slice(-300))) {
-        const workMatch = tail.slice(-300).match(/(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)[^\n]*/i);
-        return {
-          priority: PRIORITY.LOW,
-          label: PRIORITY_LABELS[PRIORITY.LOW],
-          reason: workMatch ? workMatch[0].slice(0, 80) : 'Working',
-          action: 'No action needed',
-          actionHint: 'working',
-          context,
-        };
-      }
+      return {
+        priority: PRIORITY.LOW,
+        label: PRIORITY_LABELS[PRIORITY.LOW],
+        reason,
+        action: 'No action needed',
+        actionHint: 'working',
+      };
     }
 
     // --- NONE: Idle ---
@@ -235,16 +210,20 @@ export class Orchestrator {
       reason: 'Idle',
       action: 'No action needed',
       actionHint: 'idle',
-      context,
     };
   }
 
-  // Called when a session's status changes
-  onStatusChange(sessionId, status, meta) {
+  /**
+   * Called when a session's PTY process exits.
+   * Not detected by StateDetector — comes from node-pty onExit callback.
+   * @param {string} sessionId
+   * @param {string} status - 'completed' or 'exited'
+   * @param {SessionMeta} meta
+   */
+  onExitStatus(sessionId, status, meta) {
     if (status === 'completed') {
       this.states.set(sessionId, {
         sessionId,
-        meta,
         priority: PRIORITY.MEDIUM,
         label: PRIORITY_LABELS[PRIORITY.MEDIUM],
         reason: 'Session completed successfully',
@@ -255,10 +234,9 @@ export class Orchestrator {
       });
       this.onChange?.();
     } else if (status === 'exited') {
-      const exitCode = meta.exitCode;
+      const exitCode = meta?.exitCode;
       this.states.set(sessionId, {
         sessionId,
-        meta,
         priority: PRIORITY.HIGH,
         label: PRIORITY_LABELS[PRIORITY.HIGH],
         reason: `Exited with code ${exitCode}`,
@@ -277,7 +255,7 @@ export class Orchestrator {
    */
   getRanked() {
     const entries = [];
-    for (const [sessionId, state] of this.states) {
+    for (const [, state] of this.states) {
       entries.push({ ...state });
     }
     entries.sort((a, b) => {
@@ -290,7 +268,6 @@ export class Orchestrator {
   // Remove a session from tracking
   remove(sessionId) {
     this.states.delete(sessionId);
-    this.buffers.delete(sessionId);
     this.onChange?.();
   }
 
