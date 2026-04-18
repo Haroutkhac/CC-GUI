@@ -99,6 +99,11 @@ export function wireNotifications(io, { store, stateDetector, orchestrator, aiOr
         summary: summary?.summary,
       });
     }
+
+    // Feed resolved state into Orchestrator for priority ranking.
+    // This runs after auto-respond check (so auto-responded prompts
+    // don't flash CRITICAL) and after session status updates.
+    orchestrator.onStateChange(sessionId, granularState, detail);
   };
 
   // Broadcast orchestrator state whenever priorities change
