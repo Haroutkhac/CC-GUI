@@ -138,6 +138,7 @@ export class StateDetector {
 
       // Check Claude Code's actual title animation prefixes (most reliable)
       if (TITLE_BUSY_PREFIXES.some(p => lastTitle.startsWith(p))) {
+        state.lastClearTime = 0; // real work started — re-enable prompt detection (Ghostty path)
         this._setPtyState(sessionId, 'working');
         return;
       }
@@ -176,7 +177,10 @@ export class StateDetector {
     }
 
     // 3b. Permission/approval prompts → CRITICAL priority
-    if (/Do you want to proceed|Allow .* to |Approve.*Deny|Would you like to/i.test(tail.slice(-300))) {
+    //     Requires explicit approval-related tokens to avoid matching
+    //     conversational text like "Would you like to add tests?"
+    const permissionTail = tail.slice(-300);
+    if (/(?:Do you want to proceed|Allow .* to (?:run|execute|access|write|read|delete|modify)|Approve.*Deny)\s*[?]?\s*$/i.test(permissionTail)) {
       if (suppressPrompt) {
         if (state.ptyState !== 'active') this._setPtyState(sessionId, 'active');
         return;
@@ -195,9 +199,19 @@ export class StateDetector {
       return;
     }
 
-    // 3d. Completion detection — PTY fallback (transcript result.success is authoritative)
+    // 3d. PTY error detection — catch terminal errors for non-Claude sessions
+    //     and command failures inside long-lived shells
     const lastLines = tail.split('\n').filter(l => l.trim()).slice(-2).join('\n');
     const WORK_PATTERN = /(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i;
+    if (!WORK_PATTERN.test(lastLines)) {
+      const errorMatch = lastLines.match(/(Error|Failed|ENOENT|EACCES|Permission denied|Command failed|panic|FATAL)[:\s](.{0,100})/i);
+      if (errorMatch) {
+        this._setPtyState(sessionId, 'waiting', { waitingReason: 'error', errorContext: errorMatch[0].slice(0, 200) });
+        return;
+      }
+    }
+
+    // 3e. Completion detection — PTY fallback (transcript result.success is authoritative)
     if (!WORK_PATTERN.test(lastLines) && /(?:✓|✔|Done[.!]|Successfully|Completed|finished)/i.test(lastLines)) {
       if (!suppressPrompt) {
         this._setPtyState(sessionId, 'waiting', { waitingReason: 'completed' });

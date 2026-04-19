@@ -28,6 +28,7 @@ describe('Orchestrator._mapPriority', () => {
     ['error', { errorType: 'error_max_structured_output_retries' }, PRIORITY.HIGH, 'Max retries exceeded', 'Max retries → HIGH'],
     ['error', null, PRIORITY.HIGH, 'Error', 'Unknown error → HIGH'],
     ['error', {}, PRIORITY.HIGH, 'Error', 'Empty error detail → HIGH'],
+    ['waiting', { waitingReason: 'error' }, PRIORITY.HIGH, 'Error detected', 'PTY error → HIGH'],
     ['waiting', { waitingReason: 'input_prompt' }, PRIORITY.HIGH, 'Waiting for input', 'Input prompt → HIGH'],
 
     // MEDIUM

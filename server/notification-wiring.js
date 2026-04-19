@@ -29,7 +29,7 @@ export function wireNotifications(io, { store, stateDetector, orchestrator, aiOr
     // (e.g. a stray spinner-like character in output) must not clear the
     // flag, or we'll re-notify for the same idle prompt over and over.
     const prevStatus = session.status;
-    if (newStatus === 'working' && prevStatus === 'waiting') {
+    if (newStatus === 'working' && waitingNotified.has(sessionId) && prevStatus !== 'working') {
       // Defer the clear; only commit if still working after a short grace
       // period. If we bounce back to waiting/active quickly it was noise.
       const pending = (waitingNotified._pendingClears ||= new Map());

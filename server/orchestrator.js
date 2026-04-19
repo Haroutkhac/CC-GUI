@@ -115,6 +115,17 @@ export class Orchestrator {
       };
     }
 
+    // --- HIGH: PTY error detected (non-Claude sessions, shell errors) ---
+    if (granularState === 'waiting' && detail?.waitingReason === 'error') {
+      return {
+        priority: PRIORITY.HIGH,
+        label: PRIORITY_LABELS[PRIORITY.HIGH],
+        reason: 'Error detected',
+        action: 'Investigate error',
+        actionHint: 'error',
+      };
+    }
+
     // --- HIGH: Bare input prompt (>, ❯, ?) ---
     if (granularState === 'waiting' && detail?.waitingReason === 'input_prompt') {
       return {

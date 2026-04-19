@@ -52,6 +52,7 @@
  * - 'yn_prompt'         — Y/n or y/N confirmation prompt (CRITICAL priority)
  * - 'permission_prompt' — "Do you want to proceed" / "Allow" / "Approve" (CRITICAL)
  * - 'input_prompt'      — Bare >, ❯, or ? prompt (HIGH)
+ * - 'error'             — PTY error detected: Error, Failed, ENOENT, panic (HIGH)
  * - 'completed'         — Task completion detected: ✓, Done, Successfully (MEDIUM)
  * - 'end_turn'          — Transcript end_turn or result.success (MEDIUM)
  * - 'requires_action'   — Transcript session_state_changed: requires_action (MEDIUM)
