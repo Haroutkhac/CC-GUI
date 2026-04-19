@@ -50,6 +50,7 @@ export class StateDetector {
     if (!this.sessions.has(sessionId)) {
       this.sessions.set(sessionId, {
         ptyState: null,
+        ptyDetail: null,          // { waitingReason } — why PTY is waiting
         transcriptState: null,
         transcriptDetail: null,
         // Session metadata from transcript init event
@@ -160,18 +161,48 @@ export class StateDetector {
     state._cleanCache = clean; // cache for getCleanBuffer/getCleanTail reuse
     const tail = clean.slice(-400);
 
-    // Waiting patterns — prompt at end of output
-    if (/(?:^|\n)\s*>\s*$/.test(tail) || /❯\s*$/.test(tail) || /\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail) || /(?:^|\n)\s*\?\s*$/.test(tail)) {
-      // After a screen clear, the fresh prompt is not "waiting for input" —
-      // suppress until real work (spinners) starts a new turn
-      if (state.lastClearTime && Date.now() - state.lastClearTime < 30000) {
-        if (state.ptyState !== 'active') {
-          this._setPtyState(sessionId, 'active');
-        }
+    // After a screen clear, the fresh prompt is not "waiting for input" —
+    // suppress until real work (spinners) starts a new turn
+    const suppressPrompt = state.lastClearTime && Date.now() - state.lastClearTime < 30000;
+
+    // 3a. Y/n confirmation prompts → CRITICAL priority
+    if (/\(Y\/n\)\s*$/i.test(tail) || /\(y\/N\)\s*$/i.test(tail)) {
+      if (suppressPrompt) {
+        if (state.ptyState !== 'active') this._setPtyState(sessionId, 'active');
         return;
       }
-      this._setPtyState(sessionId, 'waiting');
+      this._setPtyState(sessionId, 'waiting', { waitingReason: 'yn_prompt' });
       return;
+    }
+
+    // 3b. Permission/approval prompts → CRITICAL priority
+    if (/Do you want to proceed|Allow .* to |Approve.*Deny|Would you like to/i.test(tail.slice(-300))) {
+      if (suppressPrompt) {
+        if (state.ptyState !== 'active') this._setPtyState(sessionId, 'active');
+        return;
+      }
+      this._setPtyState(sessionId, 'waiting', { waitingReason: 'permission_prompt' });
+      return;
+    }
+
+    // 3c. Bare input prompts (>, ❯, ?) → HIGH priority
+    if (/(?:^|\n)\s*>\s*$/.test(tail) || /❯\s*$/.test(tail) || /(?:^|\n)\s*\?\s*$/.test(tail)) {
+      if (suppressPrompt) {
+        if (state.ptyState !== 'active') this._setPtyState(sessionId, 'active');
+        return;
+      }
+      this._setPtyState(sessionId, 'waiting', { waitingReason: 'input_prompt' });
+      return;
+    }
+
+    // 3d. Completion detection — PTY fallback (transcript result.success is authoritative)
+    const lastLines = tail.split('\n').filter(l => l.trim()).slice(-2).join('\n');
+    const WORK_PATTERN = /(Thinking|Working|Running|Reading|Writing|Editing|Searching|Analyzing|Creating|Updating|Compiling|Building|Installing)/i;
+    if (!WORK_PATTERN.test(lastLines) && /(?:✓|✔|Done[.!]|Successfully|Completed|finished)/i.test(lastLines)) {
+      if (!suppressPrompt) {
+        this._setPtyState(sessionId, 'waiting', { waitingReason: 'completed' });
+        return;
+      }
     }
 
     // If spinner cooldown is active, maintain working state
@@ -185,9 +216,14 @@ export class StateDetector {
     }
   }
 
-  _setPtyState(sessionId, ptyState) {
+  _setPtyState(sessionId, ptyState, ptyDetail = null) {
     const state = this._getSession(sessionId);
-    if (state.ptyState === ptyState) return;
+
+    // Skip if nothing changed (same state AND same waitingReason)
+    if (state.ptyState === ptyState &&
+        (state.ptyDetail?.waitingReason || null) === (ptyDetail?.waitingReason || null)) {
+      return;
+    }
 
     // When PTY exits "waiting" (prompt disappeared — user typed input),
     // clear stale transcript "waiting" so the resolved status updates immediately
@@ -197,6 +233,7 @@ export class StateDetector {
     }
 
     state.ptyState = ptyState;
+    state.ptyDetail = ptyDetail;
     this._resolveAndEmit(sessionId);
   }
 
@@ -223,6 +260,16 @@ export class StateDetector {
     if (transcriptState === 'thinking' || transcriptState === 'tool_running' || transcriptState === 'responding') {
       state.lastClearTime = 0;
     }
+
+    // Derive waitingReason from transcript context when not already set
+    if (transcriptState === 'waiting' && detail && !detail.waitingReason) {
+      if (detail.requiresAction) {
+        detail.waitingReason = 'requires_action';
+      } else {
+        detail.waitingReason = 'end_turn';
+      }
+    }
+
     state.transcriptState = transcriptState;
     state.transcriptDetail = detail || null;
     this._resolveAndEmit(sessionId);
@@ -253,15 +300,24 @@ export class StateDetector {
     }
 
     const newStatus = STATE_TO_STATUS[granularState] || 'active';
-    const detail = state.transcriptDetail;
-    const detailChanged = detail &&
-      JSON.stringify(detail) !== JSON.stringify(state._lastEmittedDetail);
+
+    // Merge detail: start from transcript detail, overlay PTY waitingReason
+    // PTY-detected waitingReason takes precedence (it sees the actual prompt)
+    let detail = state.transcriptDetail ? { ...state.transcriptDetail } : {};
+    if (granularState === 'waiting' && state.ptyDetail?.waitingReason) {
+      detail.waitingReason = state.ptyDetail.waitingReason;
+    }
+    // If no detail fields at all, use null for backward compatibility
+    const mergedDetail = Object.keys(detail).length > 0 ? detail : null;
+
+    const detailChanged = mergedDetail &&
+      JSON.stringify(mergedDetail) !== JSON.stringify(state._lastEmittedDetail);
 
     if (newStatus !== state.resolvedStatus || detailChanged) {
       state.resolvedStatus = newStatus;
       state.granularState = granularState;
-      state._lastEmittedDetail = detail;
-      this.onStatusChange(sessionId, newStatus, granularState, detail);
+      state._lastEmittedDetail = mergedDetail;
+      this.onStatusChange(sessionId, newStatus, granularState, mergedDetail);
     }
   }
 

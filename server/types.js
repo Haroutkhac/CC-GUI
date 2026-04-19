@@ -36,7 +36,9 @@
 /**
  * @typedef {Object} DetectionState
  * @property {string|null} ptyState
+ * @property {Object|null} ptyDetail - PTY-sourced detail (e.g., { waitingReason })
  * @property {string|null} transcriptState
+ * @property {Object|null} transcriptDetail
  * @property {string} resolvedStatus
  * @property {string} granularState
  * @property {number} lastSpinnerTime
@@ -46,9 +48,18 @@
  */
 
 /**
+ * Possible waitingReason values (set on detail when granularState === 'waiting'):
+ * - 'yn_prompt'         — Y/n or y/N confirmation prompt (CRITICAL priority)
+ * - 'permission_prompt' — "Do you want to proceed" / "Allow" / "Approve" (CRITICAL)
+ * - 'input_prompt'      — Bare >, ❯, or ? prompt (HIGH)
+ * - 'completed'         — Task completion detected: ✓, Done, Successfully (MEDIUM)
+ * - 'end_turn'          — Transcript end_turn or result.success (MEDIUM)
+ * - 'requires_action'   — Transcript session_state_changed: requires_action (MEDIUM)
+ */
+
+/**
  * @typedef {Object} OrchestratorEntry
  * @property {string} sessionId
- * @property {SessionMeta} meta
  * @property {number} priority
  * @property {string} label
  * @property {string} reason

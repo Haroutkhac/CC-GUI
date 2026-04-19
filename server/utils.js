@@ -136,4 +136,3 @@ export function capitalize(str) {
 // Buffer size constants
 export const SCROLLBACK_LIMIT = 100000;    // 100KB per terminal session
 export const STATUS_BUFFER_LIMIT = 4000;   // For status detection in server
-export const ORCHESTRATOR_BUFFER_LIMIT = 8000; // For orchestrator analysis

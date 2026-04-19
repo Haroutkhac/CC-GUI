@@ -42,8 +42,19 @@ function AlertItem({ notification, onDismiss, onJump }) {
     };
   }, []);
 
-  const typeIcon = notification.type === 'input_needed' ? '!' : notification.type === 'completed' ? '✓' : '*';
-  const typeClass = notification.type === 'input_needed' ? 'warning' : notification.type === 'completed' ? 'success' : 'info';
+  const typeIcon =
+    notification.type === 'input_needed' ? '!' :
+    notification.type === 'completed' ? '✓' :
+    notification.type === 'error' ? '!' :
+    '*';
+  const typeClass =
+    notification.type === 'input_needed' ? 'warning' :
+    notification.type === 'completed' ? 'success' :
+    notification.type === 'error' ? 'error' :
+    'info';
+
+  const title = notification.title;
+  const body = notification.message || notification.body;
 
   return (
     <div
@@ -51,7 +62,11 @@ function AlertItem({ notification, onDismiss, onJump }) {
       onClick={onJump}
     >
       <span className="sidebar-alert-icon">{typeIcon}</span>
-      <span className="sidebar-alert-msg">{notification.message}</span>
+      <span className="sidebar-alert-msg">
+        {title && <strong className="sidebar-alert-title">{title}</strong>}
+        {title && body && ' — '}
+        {body}
+      </span>
       <button className="sidebar-alert-dismiss" onClick={(e) => { e.stopPropagation(); onDismiss(); }}>x</button>
     </div>
   );

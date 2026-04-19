@@ -215,6 +215,14 @@ export function useSocket() {
     return apiCall(`/api/projects/${id}`, { method: 'DELETE' });
   }, [apiCall]);
 
+  const updateProject = useCallback((id, updates) => {
+    return apiCall(`/api/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+  }, [apiCall]);
+
   const createSession = useCallback((projectId, name, command) => {
     return apiCall('/api/sessions', {
       method: 'POST',
@@ -308,6 +316,7 @@ export function useSocket() {
     prStatuses,
     createProject,
     deleteProject,
+    updateProject,
     createSession,
     quickCreateSession,
     deleteSession,
